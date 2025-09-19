@@ -4,7 +4,7 @@ Pytorch Geometric Dataset
 
 import torch
 from torch_geometric.data import Dataset, Data
-from .smiles_to_geometric_data import Create_Graph
+from smiles_to_geometric_data import Create_Graph
 
 class ChiralGNN_Dataset(Dataset):
     def __init__(self, df, features):
