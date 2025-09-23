@@ -55,7 +55,7 @@ class Geometric_Models(torch.nn.Module):
 
 def train_one_epoch(model : torch.nn.Module,
                     dataloader : torch_geometric.loader.DataLoader,
-                    optimizer : torch.optim) -> np.array:
+                    optimizer : torch.optim) -> list:
     '''
     Training the generic model (Geometric Models) one epoch.
     '''
@@ -74,31 +74,32 @@ def train_one_epoch(model : torch.nn.Module,
 
 def validate_test_one_epoch(model : torch.nn.Module,
                             dataloader : torch_geometric.loader.DataLoader,
-                            ) -> np.array:
+                            ) -> list:
     '''
     Validating or testing on a single epoch.
     '''
     model.eval()
     losses = []
-    for batch in dataloader:
-        batch = batch.to(device)
-        true_values = batch['y'].to(device).float()
-        preds = model(batch)
-        loss = model.calculate_loss(preds, true_values)
-        losses.append(loss.cpu().detach().numpy())
+    with torch.no_grad():
+        for batch in dataloader:
+            batch = batch.to(device)
+            true_values = batch['y'].to(device).float()
+            preds = model(batch)
+            loss = model.calculate_loss(preds, true_values)
+            losses.append(loss.cpu().detach().numpy())
     return losses
 
 def main():
     from geometric_dataset import ChiralGNN_Dataset
     from torch_geometric.loader import DataLoader
     df = pd.read_csv('data/processed_data.csv', index_col=0)
-    df = df[0:17]
-    features = ['atomic number', 'hybridization', 'chirality type', 'xyz']
+    df = df[0:1]
+    features = ['atomic number', 'hybridization', 'chirality type']
     model_name = 'GCN'
     dataset = ChiralGNN_Dataset(df=df, features=features)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=False)
     input_layer_size = dataset[0]['x'].size()[-1]
-    hidden_layer_size = 128
+    hidden_layer_size = 3
     output_layer_size = 1
     model = Geometric_Models(input_layer_size=input_layer_size,
                              hidden_layer_size=hidden_layer_size,
