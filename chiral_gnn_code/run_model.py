@@ -8,15 +8,14 @@ import os
 import numpy as np
 import pandas as pd
 import argparse
-import random
 from pathlib import Path
 import logging
 import torch
 
 from torch_geometric.loader import DataLoader
 
-from .torch_geometric_model_loading import Geometric_Models, train_one_epoch, validate_test_one_epoch
-from .geometric_dataset import ChiralGNN_Dataset
+from torch_geometric_model_loading import Geometric_Models, train_one_epoch, validate_test_one_epoch
+from geometric_dataset import ChiralGNN_Dataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -56,19 +55,21 @@ def main():
 
     data = 'data/processed_data.csv'
     model_name = 'GCN'
-    epochs = 100
+    epochs = 10
     lr = 1e-3
     batch_size = 64
     features = ['atomic number', 'hybridization', 'chirality type', 'xyz']
     random_seed = 0
     save_dir = 'results'
     hidden_layer_size = 128
+    cross_val_folds = 5
 
-    df = pd.read_csv(args.data)
-
+    df = pd.read_csv(data)
+    df = df[0:100]
     np.random.seed(random_seed)
-    np.random.shuffle(df)
-    idxs = np.array_split(df.index, 5)
+    idxs = np.array(df.index)
+    np.random.shuffle(idxs)
+    idxs = np.array_split(idxs, cross_val_folds)
 
     Path(save_dir).mkdir(exist_ok=True, parents=True)
 
@@ -80,11 +81,15 @@ def main():
     logger.setLevel(logging.DEBUG)
 
     # Split into training and testing / validation cross val sets.
-    for fold in range(len(idxs)):
+    for fold in range(cross_val_folds):
         test_idxs = idxs[fold]
-        train_val_idxs = np.delete(idxs, test_idxs)
-        train_idxs = train_val_idxs[0:int(np.floor(len(train_val_idxs) * 0.1))]
-        val_idxs = train_val_idxs[int(np.floor(len(train_val_idxs) * 0.1)) : ]
+        train_test_idxs = idxs.copy()
+        del train_test_idxs[fold]
+        # Every other idx not in the test fold becomes part of the the
+        # training or validation fold.
+        train_test_idxs = np.concatenate(train_test_idxs).reshape([-1])
+        train_idxs = train_test_idxs[0:len(train_test_idxs) - int(np.floor(len(train_test_idxs) * 0.1))]
+        val_idxs = train_test_idxs[len(train_test_idxs) - int(np.floor(len(train_test_idxs) * 0.1)) : ]
         train_df = df.loc[train_idxs].reset_index(drop=True)
         val_df = df.loc[val_idxs].reset_index(drop=True)
         test_df = df.loc[test_idxs].reset_index(drop=True)
