@@ -28,7 +28,7 @@ def init_args():
                         type=str,
                         choices=['GCN', 'GAT', 'SAGE', 'GIN', 'NN'],
                         help='Choose one of the available options: GCN, GAT, SAGE, GIN, NN.')
-    parser.add_argument('--random_seed',
+    parser.add_argument('--random-seed',
                         type=int)
     parser.add_argument('--features',
                         nargs='+',
@@ -46,7 +46,7 @@ def init_args():
     parser.add_argument('--hidden_layer_size',
                         type=int,
                         default=128)
-    parser.add_argument('--cv-fold',
+    parser.add_argument('--fold',
                         type=int,
                         help='Which fold of the cross validation should be left out in testing?')
     parser.add_argument('--cv',
@@ -98,7 +98,10 @@ def main():
     idxs = np.array_split(idxs, args.cv)
 
     # Make the directory for this fold.
-    Path(os.path.join(args.save_dir, 'fold_' + str(args.fold))).mkdir(exist_ok=True, parents=True)
+    feats = args.features
+    feats.sort()
+    feats = '_'.join(feats).replace(' ', '-')
+    Path(os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold))).mkdir(exist_ok=True, parents=True)
 
     # Get the logger ready.
     logger = logger_setup(args.fold, args.save_dir)
