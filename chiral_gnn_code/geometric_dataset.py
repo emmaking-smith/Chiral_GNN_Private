@@ -22,13 +22,10 @@ class ChiralGNN_Dataset(Dataset):
             rotation = 1
         else:
             rotation = 0
-        try:
-            edge_tuples, node_info, bond_types = self.processing.smiles_to_graph(smiles=smiles)
+        edge_tuples, node_info, bond_types = self.processing.smiles_to_graph(smiles=smiles, label=rotation)
 
-            idx_data = Data(x=node_info,
-                            edge_index=edge_tuples.t().contiguous(),
-                            edge_attr=bond_types,
-                            y=torch.tensor([rotation]))
-            return idx_data
-        except:
-            return None
+        idx_data = Data(x=node_info,
+                        edge_index=edge_tuples.t().contiguous(),
+                        edge_attr=bond_types,
+                        y=torch.tensor([rotation]))
+        return idx_data

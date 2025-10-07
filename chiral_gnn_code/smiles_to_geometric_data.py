@@ -64,8 +64,8 @@ class Node_Info:
         mol = Chem.AddHs(mol)
         params = AllChem.ETKDGv3()
         params.randomSeed = 0xf00d
-        status = AllChem.EmbedMolecule(mol, params)
-        if status != -1:
+        try:
+            AllChem.EmbedMolecule(mol, params)
             AllChem.UFFOptimizeMolecule(mol)
             conf = mol.GetConformer()
             principle_axes, moments = rdMolTransforms.ComputePrincipalAxesAndMoments(conf)
@@ -74,8 +74,8 @@ class Node_Info:
             center_of_mass = np.mean(positions, axis=0)
             centered_positions = positions - center_of_mass
             new_positions = np.dot(centered_positions, rotation_matrix)
-        else:
-            new_positions = np.zeros((len(mol.GetAtoms(), 3)))
+        except:
+            new_positions = np.zeros((len(mol.GetAtoms()), 3))
         return new_positions
 
 class Create_Graph:
@@ -128,7 +128,8 @@ class Create_Graph:
 
     def create_atomic_features(self, atom : Chem.rdchem.Atom,
                                xyz_coordinates : Union[np.array, None],
-                               atom_idx : int) -> list[list[int]]:
+                               atom_idx : int,
+                               label : int) -> list[list[int]]:
         atomic_features = []
         for feat in self.features:
             if feat != 'xyz':
@@ -136,27 +137,32 @@ class Create_Graph:
 
         if 'xyz' in self.features:
             atomic_features += xyz_coordinates[atom_idx].tolist()
+
+        atomic_features.append(label)
         return atomic_features
 
-    def create_node_features(self, mol : Chem.rdchem.Mol) -> list[list[int]]:
+    def create_node_features(self, mol : Chem.rdchem.Mol, label) -> list[list[int]]:
         all_atom_features = []
         if 'xyz' in self.features:
             xyz_coordinates = self.features_dict['xyz'](mol)
         else:
             xyz_coordinates = None
         for i, atom in enumerate(mol.GetAtoms()):
+
             all_atom_features.append(self.create_atomic_features(atom=atom,
                                                              xyz_coordinates=xyz_coordinates,
-                                                             atom_idx=i))
+                                                             atom_idx=i,
+                                                                 label=label)
+                                     )
         return all_atom_features
 
-    def smiles_to_graph(self, smiles : str) -> tuple[torch.tensor, torch.tensor, torch.tensor]:
+    def smiles_to_graph(self, smiles : str, label : int) -> tuple[torch.tensor, torch.tensor, torch.tensor]:
         '''
         Creating the edge list and node features for a single molecule.
         '''
         mol = Chem.MolFromSmiles(smiles)
         edge_tuples, bond_types = self.find_edge_indices(mol=mol)
-        node_info = self.create_node_features(mol=mol)
+        node_info = self.create_node_features(mol=mol, label=label)
         return (torch.tensor(edge_tuples, dtype=torch.long).reshape(-1,2),
                 torch.tensor(node_info, dtype=torch.float).reshape((len(mol.GetAtoms()),-1)),
                 torch.tensor(bond_types, dtype=torch.float).reshape((-1,1))

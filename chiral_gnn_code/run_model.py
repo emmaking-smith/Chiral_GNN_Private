@@ -32,7 +32,7 @@ def init_args():
                         type=int)
     parser.add_argument('--features',
                         nargs='+',
-                        choices=['atomic number', 'hybridization', 'chirality type', 'xyz'],
+                            choices=['atomic number', 'hybridization', 'chirality type', 'xyz'],
                         help='Choose one or more of the available options: atomic number, hybridization, chirality type, xyz')
     parser.add_argument('--epochs',
                         type=int,
@@ -61,7 +61,7 @@ def logger_setup(fold : int, save_dir : str) -> logging.Logger:
     '''
     Returns a specific logger for each fold.
     '''
-    log_file = os.path.join(save_dir, 'fold_' + str(fold), 'epoch_loss.log')
+    log_file = os.path.join(save_dir, 'epoch_loss.log')
     logging.basicConfig(filename=log_file,
                         format='%(asctime)s %(message)s',
                         filemode='w')
@@ -98,13 +98,14 @@ def main():
     idxs = np.array_split(idxs, args.cv)
 
     # Make the directory for this fold.
-    feats = args.features
+    feats = args.features.copy()
     feats.sort()
     feats = '_'.join(feats).replace(' ', '-')
-    Path(os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold))).mkdir(exist_ok=True, parents=True)
+    save_dir = os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold))
+    Path(save_dir).mkdir(exist_ok=True, parents=True)
 
     # Get the logger ready.
-    logger = logger_setup(args.fold, args.save_dir)
+    logger = logger_setup(args.fold, save_dir)
 
     # Splitting into training, validation, and testing.
     test_idxs = idxs[args.fold]
