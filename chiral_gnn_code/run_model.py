@@ -17,6 +17,8 @@ from torch_geometric.loader import DataLoader
 from torch_geometric_model_loading import Geometric_Models, train_one_epoch, validate_test_one_epoch
 from geometric_dataset import ChiralGNN_Dataset
 
+
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def init_args():
@@ -101,11 +103,20 @@ def main():
     feats = args.features.copy()
     feats.sort()
     feats = '_'.join(feats).replace(' ', '-')
+<<<<<<< Updated upstream
     save_dir = os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold))
     Path(save_dir).mkdir(exist_ok=True, parents=True)
 
     # Get the logger ready.
     logger = logger_setup(args.fold, save_dir)
+=======
+    fold_dir = os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold))
+
+    Path(fold_dir).mkdir(exist_ok=True, parents=True)
+
+    # Get the logger ready.
+    logger = logger_setup(args.fold, fold_dir)
+>>>>>>> Stashed changes
 
     # Splitting into training, validation, and testing.
     test_idxs = idxs[args.fold]
@@ -162,11 +173,11 @@ def main():
     # Testing.
     test_losses = validate_test_one_epoch(model, test_dataloader)
     test_df['pred'] = test_losses
-    logger.debug('*** Fold %d *** Mean Test Loss : %.3f', fold, np.mean(test_losses))
+    logger.debug('*** Fold %d *** Mean Test Loss : %.3f', args.fold, np.mean(test_losses))
 
     # Save out model and preds.
-    torch.save(model.state_dict(), os.path.join(args.save_dir, 'fold_' + str(args.fold), 'model_state_dict'))
-    test_df.to_pickle(os.path.join(args.save_dir, 'fold_' + str(args.fold), 'pred.pickle'))
+    torch.save(model.state_dict(), os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold), 'model_state_dict'))
+    test_df.to_pickle(os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold), 'pred.pickle'))
 
 if __name__ == '__main__':
     main()
