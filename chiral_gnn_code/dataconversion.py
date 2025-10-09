@@ -69,5 +69,5 @@ if __name__ == "__main__":
     print("y shape:", y.shape)
    # print(df_clean.head())            # first few rows
     #print("Class balance:\n", df_clean["rotation_binary"].value_counts())
-   # print(df_clean.columns.tolist())
+    #print(df_clean.columns.tolist())
     print(y)
