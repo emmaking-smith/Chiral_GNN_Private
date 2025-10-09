@@ -22,7 +22,9 @@ class ChiralGNN_Dataset(Dataset):
             rotation = 1
         else:
             rotation = 0
-        edge_tuples, node_info, bond_types = self.processing.smiles_to_graph(smiles=smiles, label=rotation)
+        edge_tuples, node_info, bond_types = self.processing.smiles_to_graph(smiles=smiles,
+                                                                             xyz_coordinates=self.df.loc[idx, 'xyz']
+                                                                             )
 
         idx_data = Data(x=node_info,
                         edge_index=edge_tuples.t().contiguous(),

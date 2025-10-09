@@ -23,7 +23,7 @@ def init_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data',
                         type=str,
-                        default='data/processed_data.csv')
+                        default='data/processed_data_with_xyz.pickle')
     parser.add_argument('--model-name',
                         type=str,
                         choices=['GCN', 'GAT', 'SAGE', 'GIN', 'NN'],
@@ -91,7 +91,7 @@ def main():
     # hidden_layer_size = 128
     # cross_val_folds = 5
 
-    df = pd.read_csv(args.data)
+    df = pd.read_pickle(args.data)
     np.random.seed(args.random_seed)
     idxs = np.array(df.index)
     np.random.shuffle(idxs)

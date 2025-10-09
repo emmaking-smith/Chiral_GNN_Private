@@ -3,10 +3,8 @@ Functions that take a chemical SMILES string and turn
 it into the correct format for pytorch geometric datasets.
 
 '''
-
 import torch
 import numpy as np
-from typing import Union
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolTransforms
 
@@ -98,7 +96,6 @@ class Create_Graph:
             'atomic number' : Feature_Functions.find_atomic_num,
             'hybridization' : Feature_Functions.find_hybridization,
             'chirality type' : Feature_Functions.find_chiral_type,
-            'xyz' : Feature_Functions.standard_mol_xyz
         }
 
     def find_bond_begin_end_type(self, bond : Chem.rdchem.Bond) -> tuple[list[list[int]], str]:
@@ -127,9 +124,9 @@ class Create_Graph:
         return edge_pairings, edge_types
 
     def create_atomic_features(self, atom : Chem.rdchem.Atom,
-                               xyz_coordinates : Union[np.array, None],
                                atom_idx : int,
-                               label : int) -> list[list[int]]:
+                               xyz_coordinates : np.array
+                               ) -> list[list[int]]:
         atomic_features = []
         for feat in self.features:
             if feat != 'xyz':
@@ -137,32 +134,29 @@ class Create_Graph:
 
         if 'xyz' in self.features:
             atomic_features += xyz_coordinates[atom_idx].tolist()
-
-        atomic_features.append(label)
         return atomic_features
 
-    def create_node_features(self, mol : Chem.rdchem.Mol, label) -> list[list[int]]:
+    def create_node_features(self, mol : Chem.rdchem.Mol,
+                             xyz_coordinates : np.array
+                             ) -> list[list[int]]:
         all_atom_features = []
-        if 'xyz' in self.features:
-            xyz_coordinates = self.features_dict['xyz'](mol)
-        else:
-            xyz_coordinates = None
-        for i, atom in enumerate(mol.GetAtoms()):
 
+        for i, atom in enumerate(mol.GetAtoms()):
             all_atom_features.append(self.create_atomic_features(atom=atom,
                                                              xyz_coordinates=xyz_coordinates,
-                                                             atom_idx=i,
-                                                                 label=label)
+                                                             atom_idx=i)
                                      )
         return all_atom_features
 
-    def smiles_to_graph(self, smiles : str, label : int) -> tuple[torch.tensor, torch.tensor, torch.tensor]:
+    def smiles_to_graph(self, smiles : str,
+                        xyz_coordinates : np.array
+                        ) -> tuple[torch.tensor, torch.tensor, torch.tensor]:
         '''
         Creating the edge list and node features for a single molecule.
         '''
         mol = Chem.MolFromSmiles(smiles)
         edge_tuples, bond_types = self.find_edge_indices(mol=mol)
-        node_info = self.create_node_features(mol=mol, label=label)
+        node_info = self.create_node_features(mol=mol, xyz_coordinates=xyz_coordinates)
         return (torch.tensor(edge_tuples, dtype=torch.long).reshape(-1,2),
                 torch.tensor(node_info, dtype=torch.float).reshape((len(mol.GetAtoms()),-1)),
                 torch.tensor(bond_types, dtype=torch.float).reshape((-1,1))
