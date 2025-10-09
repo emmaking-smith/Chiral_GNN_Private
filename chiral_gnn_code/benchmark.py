@@ -59,8 +59,8 @@ def gaussianclassification(X, y, save_dir):
     df_gpc_pred.to_csv(Path(save_dir, "Gaussian Process predictions.csv"))
 
     print(f"Gaussian accuracy: {accuracy_score(test_labels, gpc_preds)}")
-    print(f" Gaussian roc_auc_score:{roc_auc_score(test_labels, gpc_preds_proba[:,1])}")
-    print(f" Gaussian loss:{log_loss(test_labels, gpc_preds_proba)}")
+    print(f"Gaussian roc_auc_score:{roc_auc_score(test_labels, gpc_preds_proba[:,1])}")
+    print(f"Gaussian loss:{log_loss(test_labels, gpc_preds_proba)}")
     print(f"Gaussian f1_score:{f1_score(test_labels, gpc_preds)}")
 
     matrix = confusion_matrix(test_labels, gpc_preds)
