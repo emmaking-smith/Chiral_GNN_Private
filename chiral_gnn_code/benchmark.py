@@ -1,3 +1,5 @@
+"""Random forest model works fine" Gaussian process currently does not work"""
+
 from sklearn.gaussian_process import GaussianProcessClassifier
 import os
 from dataconversion import build_dataset
@@ -9,7 +11,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, accuracy_score, log_loss, confusion_matrix, ConfusionMatrixDisplay, f1_score
 from matplotlib import colormaps
-X, y, df_clean = build_dataset("./data/processed_data.csv")
+X, y, df_clean = build_dataset("../data/processed_data.csv")
 
 
 def randomforestclassification(X, y, save_dir):
@@ -29,17 +31,30 @@ def randomforestclassification(X, y, save_dir):
     df_rf_pred=pd.DataFrame({"true": test_labels, "prediction": rf_preds, "pred_proba": rf_pred_proba[:,1]})
     df_rf_pred.to_csv(Path(save_dir, "Random Forest predictions.csv"))
 
-    print(f"Random forest accuracy: {accuracy_score(test_labels, rf_preds)}")
-    print(f"Random forest roc_auc_score:{roc_auc_score(test_labels, rf_pred_proba[:,1])}")
-    print(f"Random forest loss:{log_loss(test_labels, rf_pred_proba)}")
-    print(f"Random forest f1_score:{f1_score(test_labels, rf_preds)}")
-
+    Random_forest_accuracy = {accuracy_score(test_labels, rf_preds)}
+    Random_forest_roc_auc_score = {roc_auc_score(test_labels, rf_pred_proba[:,1])}
+    Random_forest_loss={log_loss(test_labels, rf_pred_proba)}
+    Random_forest_f1_score= {f1_score(test_labels, rf_preds)}
 
     matrix = confusion_matrix(test_labels, rf_preds)
     disp = ConfusionMatrixDisplay(confusion_matrix=matrix)
     disp.plot(cmap=colormaps.get_cmap('Reds'))
     plt.title('Random Forest Predictions')
     plt.savefig(os.path.join(save_dir, "Random Forest Classifier Result.png"), dpi=300)
+
+    df_rf_result = pd.DataFrame([{"Model": "Random Forest",
+                                 "Accuracy": Random_forest_accuracy,
+                                 "ROC AUC": Random_forest_roc_auc_score,
+                                 "Log Loss": Random_forest_loss,
+                                 "F1 Score": Random_forest_f1_score }])
+#save_to_csv function has not tested yet
+    df_rf_result.to_csv(os.path.join(save_dir, "Random forest table.csv"), index=False)
+
+    return Random_forest_f1_score, Random_forest_accuracy, Random_forest_loss, Random_forest_roc_auc_score, df_rf_result
+
+
+
+
 
 def gaussianclassification(X, y, save_dir):
     gpc=GaussianProcessClassifier(random_state=3)
@@ -58,10 +73,10 @@ def gaussianclassification(X, y, save_dir):
     df_gpc_pred= pd.DataFrame({"true": test_labels, "prediction": gpc_preds, "proba": gpc_preds_proba[:,1]})
     df_gpc_pred.to_csv(Path(save_dir, "Gaussian Process predictions.csv"))
 
-    print(f"Gaussian accuracy: {accuracy_score(test_labels, gpc_preds)}")
-    print(f"Gaussian roc_auc_score:{roc_auc_score(test_labels, gpc_preds_proba[:,1])}")
-    print(f"Gaussian loss:{log_loss(test_labels, gpc_preds_proba)}")
-    print(f"Gaussian f1_score:{f1_score(test_labels, gpc_preds)}")
+    Gaussian_accuracy = {accuracy_score(test_labels, gpc_preds)}
+    Gaussian_roc_auc_score = {roc_auc_score(test_labels, gpc_preds_proba[:,1])}
+    Gaussian_loss = {log_loss(test_labels, gpc_preds_proba)}
+    Gaussian_f1_score = {f1_score(test_labels, gpc_preds)}
 
     matrix = confusion_matrix(test_labels, gpc_preds)
     disp = ConfusionMatrixDisplay(confusion_matrix=matrix)
@@ -69,13 +84,21 @@ def gaussianclassification(X, y, save_dir):
     plt.title('Gaussian Process result')
     plt.savefig(os.path.join(save_dir,"Gaussian Process Classifier result.png"), dpi=300)
 
+    return Gaussian_accuracy , Gaussian_roc_auc_score, Gaussian_loss, Gaussian_f1_score
 
 def main():
-    save_dir= 'results/benchmark/'
+    save_dir = 'results/benchmark/'
     os.makedirs(save_dir, exist_ok=True)
 
     randomforestclassification(X, y, save_dir)
-    gaussianclassification(X, y, save_dir)
+    #gaussianclassification(X, y, save_dir)
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     main()
