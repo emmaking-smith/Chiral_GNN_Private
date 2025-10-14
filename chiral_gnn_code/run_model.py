@@ -158,12 +158,12 @@ def main():
     for epoch in range(args.epochs):
         train_losses = train_one_epoch(model, train_dataloader, optimizer)
         logger.debug('Epoch %d | Mean Train Loss : %.3f', epoch, np.mean(train_losses))
-        val_losses = validate_test_one_epoch(model, val_dataloader)
+        val_losses, _ = validate_test_one_epoch(model, val_dataloader)
         logger.debug('Epoch %d | Mean Val Loss : %.3f', epoch, np.mean(val_losses))
 
     # Testing.
-    test_losses = validate_test_one_epoch(model, test_dataloader)
-    test_df['pred'] = test_losses
+    test_losses, test_preds = validate_test_one_epoch(model, test_dataloader)
+    test_df['pred'] = test_preds
     logger.debug('*** Fold %d *** Mean Test Loss : %.3f', args.fold, np.mean(test_losses))
 
     # Save out model and preds.

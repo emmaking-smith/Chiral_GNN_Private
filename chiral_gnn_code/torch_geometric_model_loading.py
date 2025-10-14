@@ -80,6 +80,7 @@ def validate_test_one_epoch(model : torch.nn.Module,
     '''
     model.eval()
     losses = []
+    predictions = []
     with torch.no_grad():
         for batch in dataloader:
             batch = batch.to(device)
@@ -87,7 +88,8 @@ def validate_test_one_epoch(model : torch.nn.Module,
             preds = model(batch)
             loss = model.calculate_loss(preds, true_values)
             losses.append(loss.cpu().detach().numpy())
-    return losses
+            predictions.append(preds.cpu().detach().numpy())
+    return losses, predictions
 
 def main():
     from geometric_dataset import ChiralGNN_Dataset
