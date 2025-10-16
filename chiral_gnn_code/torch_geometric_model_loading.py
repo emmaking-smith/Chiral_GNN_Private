@@ -37,14 +37,19 @@ class Geometric_Models(torch.nn.Module):
         self.conv_layer1 = self.graph_convolution_layer_dict[model_name](self.input_layer_size,
                                                                          self.hidden_layer_size)
         self.conv_layer2 = self.graph_convolution_layer_dict[model_name](self.hidden_layer_size,
+                                                                         self.hidden_layer_size)
+        self.conv_layer3 = self.graph_convolution_layer_dict[model_name](self.hidden_layer_size,
+                                                                         self.hidden_layer_size)
+        self.conv_layer4 = self.graph_convolution_layer_dict[model_name](self.hidden_layer_size,
                                                                          self.output_layer_size)
 
     def forward(self, batch : torch_geometric.data.batch.Batch) -> torch.tensor:
         node_info = batch['x']
         edge_index = batch['edge_index']
-        graph_embeddings = self.conv_layer1(node_info, edge_index)
-        graph_embeddings = torch.nn.GELU()(graph_embeddings)
-        output = self.conv_layer2(graph_embeddings, edge_index)
+        graph_embeddings = torch.nn.ReLU()(self.conv_layer1(node_info, edge_index))
+        graph_embeddings = torch.nn.ReLU()(self.conv_layer2(graph_embeddings, edge_index))
+        graph_embeddings = torch.nn.ReLU()(self.conv_layer3(graph_embeddings, edge_index))
+        output = self.conv_layer4(graph_embeddings, edge_index)
         # Average pool for each molecule.
         output = global_mean_pool(output, batch['batch'])
         return torch.nn.Sigmoid()(output).reshape([-1])

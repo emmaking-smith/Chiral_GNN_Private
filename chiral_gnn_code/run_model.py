@@ -44,7 +44,7 @@ def init_args():
                         default=1e-3)
     parser.add_argument('--batch_size',
                         type=int,
-                        default=64)
+                        default=1024)
     parser.add_argument('--hidden_layer_size',
                         type=int,
                         default=128)
@@ -157,6 +157,7 @@ def main():
     # Train - Val Loop.
     for epoch in range(args.epochs):
         train_losses = train_one_epoch(model, train_dataloader, optimizer)
+        print('model.conv_layer1.bias.grad', model.conv_layer1.bias.grad)
         logger.debug('Epoch %d | Mean Train Loss : %.3f', epoch, np.mean(train_losses))
         val_losses, _ = validate_test_one_epoch(model, val_dataloader)
         logger.debug('Epoch %d | Mean Val Loss : %.3f', epoch, np.mean(val_losses))
