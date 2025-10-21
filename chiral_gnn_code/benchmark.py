@@ -110,14 +110,14 @@ def benchmark_result(test_y, model_pred, model_pred_proba, model_name, file_dir)
     disp = ConfusionMatrixDisplay(confusion_matrix=matrix)
     disp.plot(cmap=colormaps.get_cmap('Blues'))
     plt.title(f'{model_name} result')
-    plt.savefig(os.path.join(file_dir,"confusion matrix.png"), dpi=500)
+    plt.savefig(os.path.join(file_dir,"confusion_matrix.png"), dpi=500)
     performance_result = pd.DataFrame([{"Model": model_name, "Accuracy": accuracy_score(test_y, model_pred),
                                       'ROC AUC': roc_auc,
                                       'F1 Score': f1, }])
 
     df_result = pd.DataFrame({"true": test_y, "prediction": model_pred, "proba": model_pred_proba[:, 1]})
-    performance_result.to_csv(os.path.join(file_dir,"Model Performance Result.csv"))
-    df_result.to_csv(os.path.join(file_dir, "Model Prediction Result.csv"))
+    performance_result.to_csv(os.path.join(file_dir,"model_performance_result.csv"))
+    df_result.to_csv(os.path.join(file_dir, "model_prediction_result.csv"))
 
     return performance_result, df_result
 
