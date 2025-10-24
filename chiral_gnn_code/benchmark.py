@@ -1,76 +1,73 @@
 """Random forest model works fine" Gaussian process currently does not work"""
 
 import argparse
-
-
 from sklearn.gaussian_process import GaussianProcessClassifier
 import os
 from sklearn.model_selection import KFold
-
 from sklearn.svm import SVC
-
-
 from sklearn.preprocessing import StandardScaler
-from torch_geometric.nn.aggr import scaler
-
 from dataconversion import build_dataset
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 import pandas as pd
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, accuracy_score, log_loss, confusion_matrix, ConfusionMatrixDisplay, f1_score
 from matplotlib import colormaps
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--fold',
-                    type=int,
-                    choices=list(range(5)),
-                    help='Choose one of the available options: 0-4')
-parser.add_argument('--model-name',
-                    type=str,
-                    choices=['rf', 'gpc', 'SVM', 'ExtraTrees', 'GradientBoosting'],
-                    help='Choose one of the available options: rf, gpc, SVM, ExtraTrees, GradientBoosting')
-parser.add_argument('--scaler',
-                    type=bool,
-                    choices=[True, False],
-                    help='Choose to use the scaler or not depending on the model')
-#gather the input: model_name, scaler, fold_number
-model_name = parser.parse_args().model_name
-scaler = parser.parse_args().scaler
-fold = parser.parse_args().fold
-#set up the save directory
-save_dir = 'results/benchmark/'
-file_dir = os.path.join(save_dir,model_name,'fold_' + str(fold))
-os.makedirs(file_dir, exist_ok=True)
-#get the data
-X, y = build_dataset("./data/processed_data.csv")
-#cross-validation
-cv = KFold(n_splits=5, shuffle=True, random_state=3)
-train_idx, test_idx = list(cv.split(X))[fold]
-train_X, test_X = X[train_idx], X[test_idx]
-train_y, test_y = y[train_idx], y[test_idx]
+def settings():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--fold',
+                        type=int,
+                        choices=list(range(5)),
+                        help='Choose one of the available options: 0-4')
+    parser.add_argument('--model-name',
+                        type=str,
+                        choices=['rf', 'gpc', 'SVM', 'ExtraTrees', 'GradientBoosting'],
+                        help='Choose one of the available options: rf, gpc, SVM, ExtraTrees, GradientBoosting')
+    parser.add_argument('--scaler',
+                        type=bool,
+                        choices=[True, False],
+                        help='Choose to use the scaler or not depending on the model')
+    parser.add_argument('--save-dir', type=str, )
+    parser.add_argument('--data', type=str, )
+    # gather the input: model_name, scaler, fold_number
+    model_name = parser.parse_args().model_name
+    scaler = parser.parse_args().scaler
+    fold = parser.parse_args().fold
+    # set up the save directory
+    save_dir = parser.parse_args().save_dir
+    file_dir = os.path.join(save_dir, model_name, 'fold_' + str(fold))
+    os.makedirs(file_dir, exist_ok=True)
+    # get the data
+    X, y = build_dataset(parser.parse_args().data)
+    # cross-validation
+    cv = KFold(n_splits=5, shuffle=True, random_state=3)
+    train_idx, test_idx = list(cv.split(X))[fold]
+    train_X, test_X = X[train_idx], X[test_idx]
+    train_y, test_y = y[train_idx], y[test_idx]
 
-#choose the correct model
 
-models = {'rf': RandomForestClassifier(n_estimators=100, random_state=3),
-          'gpc': GaussianProcessClassifier(random_state=3),
-          'SVM': SVC(random_state=3, probability=True),
-          'ExtraTrees': ExtraTreesClassifier(random_state=3),
-          'GradientBoosting': GradientBoostingClassifier(random_state=3)}
+    # choose the correct model
 
-if model_name in models:
-    model = models[model_name]
-else:
-    print("No model selected")
-    model = None
+    models = {'rf': RandomForestClassifier(n_estimators=100, random_state=3),
+              'gpc': GaussianProcessClassifier(random_state=3),
+              'SVM': SVC(random_state=3, probability=True),
+              'ExtraTrees': ExtraTreesClassifier(random_state=3),
+              'GradientBoosting': GradientBoostingClassifier(random_state=3)}
 
+    if model_name in models:
+        model = models[model_name]
+    else:
+        print("No model selected")
+        model = None
+
+    return train_X, train_y, test_X, test_y, model, scaler, fold, file_dir,model_name
 
 
 #fit the data to the model
-def benchmark(train_X, test_X, train_y, model, scaler):
+def benchmark(train_X, test_X, train_y, model, scaler,fold,test_y):
 
     if scaler == True:
         train_X = StandardScaler().fit_transform(train_X)
@@ -81,7 +78,7 @@ def benchmark(train_X, test_X, train_y, model, scaler):
     model.fit(train_X, train_y)
     model_pred = model.predict(test_X)
     model_pred_proba = model.predict_proba(test_X)
-    print(f'fold={fold}, {accuracy_score(test_y, model_pred)}')
+    print(f'fold={fold}, accuracy_score: {accuracy_score(test_y, model_pred)}')
 
     return model_pred, model_pred_proba
 
@@ -113,13 +110,12 @@ def benchmark_result(test_y, model_pred, model_pred_proba, model_name, file_dir)
     plt.savefig(os.path.join(file_dir,"confusion_matrix.png"), dpi=500)
     performance_result = pd.DataFrame([{"Model": model_name, "Accuracy": accuracy_score(test_y, model_pred),
                                       'ROC AUC': roc_auc,
-                                      'F1 Score': f1, }])
-
+                                      'F1 Score': f1 }])
+    performance_result.to_csv(os.path.join(file_dir, "model_performance_result.csv"))
+    #checking the prediction
     df_result = pd.DataFrame({"true": test_y, "prediction": model_pred, "proba": model_pred_proba[:, 1]})
-    performance_result.to_csv(os.path.join(file_dir,"model_performance_result.csv"))
     df_result.to_csv(os.path.join(file_dir, "model_prediction_result.csv"))
 
-    return performance_result, df_result
 
 
 def randomforestclassification(X, y, save_dir):
@@ -198,7 +194,8 @@ def gaussianclassification(X, y, save_dir):
 
 
 def main():
-    model_pred, model_pred_proba = benchmark(train_X,test_X,train_y, model, scaler)
+    train_X, train_y, test_X, test_y, model, scaler, fold, file_dir, model_name= settings()
+    model_pred, model_pred_proba = benchmark(train_X,test_X,train_y, model, scaler,fold, test_y)
     benchmark_result(test_y, model_pred, model_pred_proba, model_name, file_dir)
 
 
