@@ -1,4 +1,3 @@
-"""Random forest model works fine" Gaussian process currently does not work"""
 
 import argparse
 from sklearn.gaussian_process import GaussianProcessClassifier
@@ -8,11 +7,11 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from dataconversion import build_dataset
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, GradientBoostingClassifier
-from sklearn.model_selection import train_test_split
+# from sklearn.model_selection import train_test_split
 import pandas as pd
-from pathlib import Path
+
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_auc_score, accuracy_score, log_loss, confusion_matrix, ConfusionMatrixDisplay, f1_score
+from sklearn.metrics import roc_auc_score, accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, log_loss
 from matplotlib import colormaps
 
 
@@ -67,7 +66,7 @@ def settings():
 
 
 #fit the data to the model
-def benchmark(train_X, test_X, train_y, model, scaler,fold,test_y):
+def benchmark(train_X, test_X, train_y, model, scaler, fold, test_y):
 
     if scaler == True:
         train_X = StandardScaler().fit_transform(train_X)
@@ -76,6 +75,9 @@ def benchmark(train_X, test_X, train_y, model, scaler,fold,test_y):
         train_X, test_X = train_X, test_X
 
     model.fit(train_X, train_y)
+    # print(model.kernel_)
+    # print(model.base_estimator_.X_train_.dtype)
+    # print(model.base_estimator_.y_train_.dtype)
     model_pred = model.predict(test_X)
     model_pred_proba = model.predict_proba(test_X)
     print(f'fold={fold}, accuracy_score: {accuracy_score(test_y, model_pred)}')
@@ -102,93 +104,100 @@ def benchmark(train_X, test_X, train_y, model, scaler,fold,test_y):
 def benchmark_result(test_y, model_pred, model_pred_proba, model_name, file_dir):
     f1 = f1_score(test_y, model_pred)
     roc_auc = roc_auc_score(test_y, model_pred_proba[:, 1])
+    log_loss_test = log_loss (test_y, model_pred_proba[:, 1])
+
 
     matrix = confusion_matrix(test_y, model_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=matrix)
     disp.plot(cmap=colormaps.get_cmap('Blues'))
     plt.title(f'{model_name} result')
     plt.savefig(os.path.join(file_dir,"confusion_matrix.png"), dpi=500)
-    performance_result = pd.DataFrame([{"Model": model_name, "Accuracy": accuracy_score(test_y, model_pred),
+    performance_result = [{"Model": model_name, "Accuracy": accuracy_score(test_y, model_pred),
                                       'ROC AUC': roc_auc,
-                                      'F1 Score': f1 }])
-    performance_result.to_csv(os.path.join(file_dir, "model_performance_result.csv"))
-    #checking the prediction
+                                      'F1 Score': f1, 'log loss': log_loss_test }]
+    print(performance_result)
+
+
+    # performance_result.to_csv(os.path.join(file_dir, "model_performance_result.csv"))
+    # #checking the prediction，if applying to the larger dataset could be deactivated
     df_result = pd.DataFrame({"true": test_y, "prediction": model_pred, "proba": model_pred_proba[:, 1]})
     df_result.to_csv(os.path.join(file_dir, "model_prediction_result.csv"))
 
-
-
-def randomforestclassification(X, y, save_dir):
-    rf = RandomForestClassifier(
-        n_estimators=100,
-        random_state=42,
-    )
-    train_inputs, test_inputs, train_labels, test_labels = train_test_split(
-        X, y, test_size=0.2, random_state=3,
-        stratify=y
-    )
-
-    rf.fit(train_inputs, train_labels)
-    rf_preds = rf.predict(test_inputs)
-    rf_pred_proba = rf.predict_proba(test_inputs)
-
-    df_rf_pred=pd.DataFrame({"true": test_labels, "prediction": rf_preds, "pred_proba": rf_pred_proba[:,1]})
-    df_rf_pred.to_csv(Path(save_dir, "Random Forest predictions.csv"))
-
-    Random_forest_accuracy = {accuracy_score(test_labels, rf_preds)}
-    Random_forest_roc_auc_score = {roc_auc_score(test_labels, rf_pred_proba[:,1])}
-    Random_forest_loss={log_loss(test_labels, rf_pred_proba)}
-    Random_forest_f1_score= {f1_score(test_labels, rf_preds)}
-
-    matrix = confusion_matrix(test_labels, rf_preds)
-    disp = ConfusionMatrixDisplay(confusion_matrix=matrix)
-    disp.plot(cmap=colormaps.get_cmap('Reds'))
-    plt.title('Random Forest Predictions')
-    plt.savefig(os.path.join(save_dir, "Random Forest Classifier Result.png"), dpi=300)
-
-    df_rf_result = pd.DataFrame([{"Model": "Random Forest",
-                                 "Accuracy": Random_forest_accuracy,
-                                 "ROC AUC": Random_forest_roc_auc_score,
-                                 "Log Loss": Random_forest_loss,
-                                 "F1 Score": Random_forest_f1_score }])
-#save_to_csv
-    df_rf_result.to_csv(os.path.join(save_dir, "Random forest table.csv"), index=False)
-
-    return Random_forest_f1_score, Random_forest_accuracy, Random_forest_loss, Random_forest_roc_auc_score, df_rf_result
+    return f1, log_loss_test
 
 
 
-
-
-def gaussianclassification(X, y, save_dir):
-    gpc=GaussianProcessClassifier(random_state=3)
-    train_inputs, test_inputs, train_labels, test_labels = train_test_split(
-        X, y, test_size=0.2, random_state=3,
-        stratify=y
-    )
-    gpc.fit(train_inputs, train_labels)
-    gpc.score(test_inputs, test_labels)
-
-
-
-    gpc_preds = gpc.predict(test_inputs)
-    gpc_preds_proba = gpc.predict_proba(test_inputs)
-
-    df_gpc_pred= pd.DataFrame({"true": test_labels, "prediction": gpc_preds, "proba": gpc_preds_proba[:,1]})
-    df_gpc_pred.to_csv(Path(save_dir, "Gaussian Process predictions.csv"))
-
-    Gaussian_accuracy = {accuracy_score(test_labels, gpc_preds)}
-    Gaussian_roc_auc_score = {roc_auc_score(test_labels, gpc_preds_proba[:,1])}
-    Gaussian_loss = {log_loss(test_labels, gpc_preds_proba)}
-    Gaussian_f1_score = {f1_score(test_labels, gpc_preds)}
-
-    matrix = confusion_matrix(test_labels, gpc_preds)
-    disp = ConfusionMatrixDisplay(confusion_matrix=matrix)
-    disp.plot(cmap=colormaps.get_cmap('Blues'))
-    plt.title('Gaussian Process result')
-    plt.savefig(os.path.join(save_dir,"Gaussian Process Classifier result.png"), dpi=300)
-
-    return Gaussian_accuracy , Gaussian_roc_auc_score, Gaussian_loss, Gaussian_f1_score
+# def randomforestclassification(X, y, save_dir):
+#     rf = RandomForestClassifier(
+#         n_estimators=100,
+#         random_state=42,
+#     )
+#     train_inputs, test_inputs, train_labels, test_labels = train_test_split(
+#         X, y, test_size=0.2, random_state=3,
+#         stratify=y
+#     )
+#
+#     rf.fit(train_inputs, train_labels)
+#     rf_preds = rf.predict(test_inputs)
+#     rf_pred_proba = rf.predict_proba(test_inputs)
+#
+#     df_rf_pred=pd.DataFrame({"true": test_labels, "prediction": rf_preds, "pred_proba": rf_pred_proba[:,1]})
+#     df_rf_pred.to_csv(Path(save_dir, "Random Forest predictions.csv"))
+#
+#     Random_forest_accuracy = {accuracy_score(test_labels, rf_preds)}
+#     Random_forest_roc_auc_score = {roc_auc_score(test_labels, rf_pred_proba[:,1])}
+#     Random_forest_loss={log_loss(test_labels, rf_pred_proba)}
+#     Random_forest_f1_score= {f1_score(test_labels, rf_preds)}
+#
+#     matrix = confusion_matrix(test_labels, rf_preds)
+#     disp = ConfusionMatrixDisplay(confusion_matrix=matrix)
+#     disp.plot(cmap=colormaps.get_cmap('Reds'))
+#     plt.title('Random Forest Predictions')
+#     plt.savefig(os.path.join(save_dir, "Random Forest Classifier Result.png"), dpi=300)
+#
+#     df_rf_result = pd.DataFrame([{"Model": "Random Forest",
+#                                  "Accuracy": Random_forest_accuracy,
+#                                  "ROC AUC": Random_forest_roc_auc_score,
+#                                  "Log Loss": Random_forest_loss,
+#                                  "F1 Score": Random_forest_f1_score }])
+# #save_to_csv
+#     df_rf_result.to_csv(os.path.join(save_dir, "Random forest table.csv"), index=False)
+#
+#     return Random_forest_f1_score, Random_forest_accuracy, Random_forest_loss, Random_forest_roc_auc_score, df_rf_result
+#
+#
+#
+#
+#
+# def gaussianclassification(X, y, save_dir):
+#     gpc=GaussianProcessClassifier(random_state=3)
+#     train_inputs, test_inputs, train_labels, test_labels = train_test_split(
+#         X, y, test_size=0.2, random_state=3,
+#         stratify=y
+#     )
+#     gpc.fit(train_inputs, train_labels)
+#     gpc.score(test_inputs, test_labels)
+#
+#
+#
+#     gpc_preds = gpc.predict(test_inputs)
+#     gpc_preds_proba = gpc.predict_proba(test_inputs)
+#
+#     df_gpc_pred= pd.DataFrame({"true": test_labels, "prediction": gpc_preds, "proba": gpc_preds_proba[:,1]})
+#     df_gpc_pred.to_csv(Path(save_dir, "Gaussian Process predictions.csv"))
+#
+#     Gaussian_accuracy = {accuracy_score(test_labels, gpc_preds)}
+#     Gaussian_roc_auc_score = {roc_auc_score(test_labels, gpc_preds_proba[:,1])}
+#     Gaussian_loss = {log_loss(test_labels, gpc_preds_proba)}
+#     Gaussian_f1_score = {f1_score(test_labels, gpc_preds)}
+#
+#     matrix = confusion_matrix(test_labels, gpc_preds)
+#     disp = ConfusionMatrixDisplay(confusion_matrix=matrix)
+#     disp.plot(cmap=colormaps.get_cmap('Blues'))
+#     plt.title('Gaussian Process result')
+#     plt.savefig(os.path.join(save_dir,"Gaussian Process Classifier result.png"), dpi=300)
+#
+#     return Gaussian_accuracy , Gaussian_roc_auc_score, Gaussian_loss, Gaussian_f1_score
 
 
 
