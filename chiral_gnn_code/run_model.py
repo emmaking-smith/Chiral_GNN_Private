@@ -14,8 +14,10 @@ import torch
 
 from torch_geometric.loader import DataLoader
 
-from torch_geometric_model_loading import Geometric_Models, train_one_epoch, validate_test_one_epoch
+from torch_geometric_model_loading import Geometric_Models_2, train_one_epoch, validate_test_one_epoch
 from geometric_dataset import ChiralGNN_Dataset
+
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -26,8 +28,9 @@ def init_args():
                         default='data/processed_data_with_xyz.pickle')
     parser.add_argument('--model-name',
                         type=str,
-                        choices=['GCN', 'GAT', 'SAGE', 'GIN', 'NN'],
-                        help='Choose one of the available options: GCN, GAT, SAGE, GIN, NN.')
+                        # choices=['GCN', 'GAT', 'SAGE', 'GIN', 'NN'],
+                        choices = ['GCN', 'GAT', 'SAGE', 'GIN', 'Attentive'],
+                        help='Choose one of the available options: GCN, GAT, SAGE, GIN, Attentive.')
     parser.add_argument('--random-seed',
                         type=int)
     parser.add_argument('--features',
@@ -42,7 +45,7 @@ def init_args():
                         default=1e-3)
     parser.add_argument('--batch_size',
                         type=int,
-                        default=64)
+                        default=1024)
     parser.add_argument('--hidden_layer_size',
                         type=int,
                         default=128)
@@ -142,10 +145,15 @@ def main():
 
     # Set up model & optimizer.
     input_layer_size = train_dataset[0]['x'].size()[-1]
-    model = Geometric_Models(input_layer_size=input_layer_size,
-                             hidden_layer_size=args.hidden_layer_size,
-                             output_layer_size=1,
-                             model_name=args.model_name)
+    model = Geometric_Models_2(input_layer_size=input_layer_size,
+                               hidden_layer_size=args.hidden_layer_size,
+                               output_layer_size=1,
+                               num_message_passes=3,
+                               model_name=args.model_name)
+    # model = Geometric_Models(input_layer_size=input_layer_size,
+    #                          hidden_layer_size=args.hidden_layer_size,
+    #                          output_layer_size=1,
+    #                          model_name=args.model_name)
 
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=args.lr)
@@ -156,12 +164,12 @@ def main():
     for epoch in range(args.epochs):
         train_losses = train_one_epoch(model, train_dataloader, optimizer)
         logger.debug('Epoch %d | Mean Train Loss : %.3f', epoch, np.mean(train_losses))
-        val_losses = validate_test_one_epoch(model, val_dataloader)
+        val_losses, _ = validate_test_one_epoch(model, val_dataloader)
         logger.debug('Epoch %d | Mean Val Loss : %.3f', epoch, np.mean(val_losses))
 
     # Testing.
-    test_losses = validate_test_one_epoch(model, test_dataloader)
-    test_df['pred'] = test_losses
+    test_losses, test_preds = validate_test_one_epoch(model, test_dataloader)
+    test_df['pred'] = test_preds
     logger.debug('*** Fold %d *** Mean Test Loss : %.3f', args.fold, np.mean(test_losses))
 
     # Save out model and preds.
