@@ -15,7 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score,log_loss
 from matplotlib import colormaps
-
+from pathlib import Path
 
 
 def settings():
@@ -35,9 +35,10 @@ def settings():
     parser.add_argument('--save-dir', type=str, )
     parser.add_argument('--data', type=str, )
     parser.add_argument('--features',
-                    nargs='+',
-                    choices=['atomic number', 'hybridization', 'chirality type', 'xyz'],
+                    nargs='*',
+                    choices=['atomic number', 'hybridization', 'chirality type', 'xyz'], default=[],
                     help='Choose one or more of the available options: atomic number, hybridization, chirality type, xyz')
+    parser.add_argument('--morganfingerprint', type=bool,default=False,choices=[True,False], help='if want to use Morgan fingerprint as input')
 
 
 
@@ -48,10 +49,19 @@ def settings():
 
     # set up the save directory
     save_dir = parser.parse_args().save_dir
-    file_dir = os.path.join(save_dir, model_name, 'fold_' + str(fold))
-    os.makedirs(file_dir, exist_ok=True)
+    if parser.parse_args().morganfingerprint == True:
+        file_dir = os.path.join(save_dir, model_name,'mpg', 'fold_' + str(fold))
+    else:
+        feats = parser.parse_args().features.copy()
+        feats.sort()
+        feats = '_'.join(feats).replace(' ', '-')
+        file_dir = os.path.join(save_dir,model_name, feats, 'fold_' + str(fold))
+
+    Path(file_dir).mkdir(exist_ok=True,parents=True)
+
     # get the data
-    X, y = build_dataset(features=parser.parse_args().features, pickle_path=parser.parse_args().data)
+    X, y = build_dataset(features=parser.parse_args().features, pickle_path=parser.parse_args().data, mfp_input=parser.parse_args().morganfingerprint)
+    print(X.shape)
     # cross-validation
     cv = KFold(n_splits=5, shuffle=True, random_state=3)
     train_idx, test_idx = list(cv.split(X))[fold]

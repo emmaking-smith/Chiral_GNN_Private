@@ -13,16 +13,23 @@ def settings():
                         type=str,
                         choices=['rf', 'gpc', 'SVM', 'ExtraTrees', 'GradientBoosting'],
                         help='Choose one of the available options: rf, gpc, SVM, ExtraTrees, GradientBoosting')
-    parser.add_argument('--save-dir', type=str, )
+    parser.add_argument('--save-dir', type=str )
+    parser.add_argument('--inputs',
+                        nargs='*',
+                        choices=['atomic number', 'hybridization', 'chirality type', 'xyz','mpg'],
+                        help='Choose one or more of the available options: atomic number, hybridization, chirality type, xyz, mpg')
 
     model_name = parser.parse_args().model_name
+    feats = parser.parse_args().inputs.copy()
+    feats.sort()
+    feats = '_'.join(feats).replace(' ', '-')
     # set up the save directory
-    save_dir = Path(parser.parse_args().save_dir, model_name)
+    save_dir = Path(parser.parse_args().save_dir, model_name, feats)
 
 
-    return model_name, save_dir
+    return model_name,feats,save_dir
 
-def average(model_name, save_dir):
+def average(model_name, feats, save_dir):
     all_test_losses = []
     all_f1_scores = []
 
@@ -34,13 +41,13 @@ def average(model_name, save_dir):
         all_test_losses.append(test_loss)
         all_f1_scores.append(f1)
 
-    print(f"Average test loss: {np.mean(all_test_losses)}")
-    print(f"Average f1 score: {np.mean(all_f1_scores)}")
+    print(f"Average {model_name} with {feats} test loss:  {np.mean(all_test_losses)}")
+    print(f"Average Average {model_name} with {feats} f1 score: {np.mean(all_f1_scores)}")
 
 
 def main():
-    model_name, save_dir = settings()
-    average(model_name, save_dir)
+    model_name, save_dir, feats = settings()
+    average(model_name, save_dir, feats)
 
 if __name__ == "__main__":
     main()
