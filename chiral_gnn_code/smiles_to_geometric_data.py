@@ -7,8 +7,9 @@ it into the correct format for pytorch geometric datasets.
 import torch
 import numpy as np
 from typing import Union
-from rdkit import Chem
-from rdkit.Chem import AllChem, rdMolTransforms
+from rdkit import Chem, DataStructs
+from rdkit.Chem import AllChem, rdMolTransforms, rdFingerprintGenerator
+
 
 class Node_Info:
     '''
@@ -78,6 +79,15 @@ class Node_Info:
             new_positions = np.zeros((len(mol.GetAtoms()), 3))
         return new_positions
 
+    def morganfingerprint(self, mol : Chem.rdchem.Mol, atom_idx) -> list[int]:
+        fpgen= rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=1024, includeChirality=True)
+        atom_fp_rdkit = fpgen.GetFingerprint(mol,fromAtoms=[atom_idx])
+        atom_fp_array = np.zeros((1024,), dtype=np.int8)
+        DataStructs.ConvertToNumpyArray(atom_fp_rdkit, atom_fp_array)
+        atom_fp = atom_fp_array.tolist()
+        return atom_fp
+
+
 class Create_Graph:
     def __init__(self, features : list[str]):
         '''
@@ -98,7 +108,8 @@ class Create_Graph:
             'atomic number' : Feature_Functions.find_atomic_num,
             'hybridization' : Feature_Functions.find_hybridization,
             'chirality type' : Feature_Functions.find_chiral_type,
-            'xyz' : Feature_Functions.standard_mol_xyz
+            'xyz' : Feature_Functions.standard_mol_xyz,
+            'mpg': Feature_Functions.morganfingerprint
         }
 
     def find_bond_begin_end_type(self, bond : Chem.rdchem.Bond) -> tuple[list[list[int]], str]:
@@ -126,19 +137,26 @@ class Create_Graph:
             edge_types.append(int(bond_type))
         return edge_pairings, edge_types
 
-    def create_atomic_features(self, atom : Chem.rdchem.Atom,
+    def create_atomic_features(self, atom : Chem.rdchem.Atom, mol: Chem.rdchem.Mol,
                                xyz_coordinates : Union[np.array, None],
                                atom_idx : int,
                                label : int) -> list[list[int]]:
         atomic_features = []
         for feat in self.features:
-            if feat != 'xyz':
+            if feat == 'mpg':
+                atom_fp = self.features_dict['mpg'](mol=mol, atom_idx=atom_idx)
+                atom_fp.append(label)
+                atomic_features.append(atom_fp)
+
+            if feat != 'xyz' and feat != 'mpg':
                 atomic_features.append(self.features_dict[feat](atom))
 
         if 'xyz' in self.features:
             atomic_features += xyz_coordinates[atom_idx].tolist()
 
-        atomic_features.append(label)
+        if 'mpg' not in self.features:
+            atomic_features.append(label)
+
         return atomic_features
 
     def create_node_features(self, mol : Chem.rdchem.Mol, label) -> list[list[int]]:
@@ -149,7 +167,7 @@ class Create_Graph:
             xyz_coordinates = None
         for i, atom in enumerate(mol.GetAtoms()):
 
-            all_atom_features.append(self.create_atomic_features(atom=atom,
+            all_atom_features.append(self.create_atomic_features(atom=atom, mol=mol,
                                                              xyz_coordinates=xyz_coordinates,
                                                              atom_idx=i,
                                                                  label=label)
@@ -163,6 +181,7 @@ class Create_Graph:
         mol = Chem.MolFromSmiles(smiles)
         edge_tuples, bond_types = self.find_edge_indices(mol=mol)
         node_info = self.create_node_features(mol=mol, label=label)
+
         return (torch.tensor(edge_tuples, dtype=torch.long).reshape(-1,2),
                 torch.tensor(node_info, dtype=torch.float).reshape((len(mol.GetAtoms()),-1)),
                 torch.tensor(bond_types, dtype=torch.float).reshape((-1,1))

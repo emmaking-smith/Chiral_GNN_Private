@@ -25,7 +25,7 @@ def init_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data',
                         type=str,
-                        default='data/processed_data_with_xyz.pickle')
+                        default='test.pickle')
     parser.add_argument('--model-name',
                         type=str,
                         # choices=['GCN', 'GAT', 'SAGE', 'GIN', 'NN'],
@@ -35,7 +35,7 @@ def init_args():
                         type=int)
     parser.add_argument('--features',
                         nargs='+',
-                            choices=['atomic number', 'hybridization', 'chirality type', 'xyz'],
+                            choices=['atomic number', 'hybridization', 'chirality type', 'xyz', 'mpg'],
                         help='Choose one or more of the available options: atomic number, hybridization, chirality type, xyz')
     parser.add_argument('--epochs',
                         type=int,
