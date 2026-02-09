@@ -15,7 +15,7 @@ import torch
 from torch_geometric.loader import DataLoader
 
 from torch_geometric_model_loading import Geometric_Models_2, train_one_epoch, validate_test_one_epoch
-from geometric_dataset import ChiralGNN_Dataset
+from geometric_dataset import ChiralGNN_Dataset, ChiralGNN_Dataset_MorganFP
 
 
 
@@ -33,10 +33,10 @@ def init_args():
                         help='Choose one of the available options: GCN, GAT, SAGE, GIN, Attentive.')
     parser.add_argument('--random-seed',
                         type=int)
-    parser.add_argument('--features',
-                        nargs='+',
-                            choices=['atomic number', 'hybridization', 'chirality type', 'xyz'],
-                        help='Choose one or more of the available options: atomic number, hybridization, chirality type, xyz')
+    # parser.add_argument('--features',
+    #                     nargs='+',
+    #                         choices=['atomic number', 'hybridization', 'chirality type', 'xyz'],
+    #                     help='Choose one or more of the available options: atomic number, hybridization, chirality type, xyz')
     parser.add_argument('--epochs',
                         type=int,
                         default=100)
@@ -101,10 +101,11 @@ def main():
     idxs = np.array_split(idxs, args.cv)
 
     # Make the directory for this fold.
-    feats = args.features.copy()
-    feats.sort()
-    feats = '_'.join(feats).replace(' ', '-')
-    save_dir = os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold))
+    # feats = args.features.copy()
+    # feats.sort()
+    # feats = '_'.join(feats).replace(' ', '-')
+    # save_dir = os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold))
+    save_dir = os.path.join(args.save_dir, args.model_name, str(args.random_seed), 'fold_' + str(args.fold))
     Path(save_dir).mkdir(exist_ok=True, parents=True)
 
     # Get the logger ready.
@@ -130,12 +131,15 @@ def main():
     test_df = df.loc[test_idxs].reset_index(drop=True)
 
     # Set up dataset & datalaoder.
-    train_dataset = ChiralGNN_Dataset(df=train_df,
-                                      features=args.features)
-    val_dataset = ChiralGNN_Dataset(df=val_df,
-                                      features=args.features)
-    test_dataset = ChiralGNN_Dataset(df=test_df,
-                                     features=args.features)
+    # train_dataset = ChiralGNN_Dataset(df=train_df,
+    #                                   features=args.features)
+    # val_dataset = ChiralGNN_Dataset(df=val_df,
+    #                                   features=args.features)
+    # test_dataset = ChiralGNN_Dataset(df=test_df,
+    #                                  features=args.features)
+    train_dataset = ChiralGNN_Dataset_MorganFP(df=train_df)
+    val_dataset = ChiralGNN_Dataset_MorganFP(df=val_df)
+    test_dataset = ChiralGNN_Dataset_MorganFP(df=test_df)
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size,
                                   shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size,

@@ -7,6 +7,7 @@ import torch
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolTransforms
+from rdkit.Chem import rdFingerprintGenerator
 
 class Node_Info:
     '''
@@ -163,5 +164,49 @@ class Create_Graph:
                 )
 
 
+class Chiral_MFP_Graph(Create_Graph):
+    def __init__(self, radius : int=2, fpSize : int=512):
+        '''
+        Creating a pytorch geometric graph
+        using the atom-wise chiral Morgan fingerprint
+        as each node's feature.
 
+        Args:
+            radius (int): radius for morgan fingerprint.
+            fpSize (int): fingerprint size.
+        '''
+        super(Chiral_MFP_Graph, self).__init__(features=[])
+        self.morgan_generator = rdFingerprintGenerator.GetMorganGenerator(radius=radius,
+                                                                          fpSize=fpSize,
+                                                                          includeChirality=True)
+
+    def create_atom_wise_MFP(self, mol : Chem.rdchem.Mol, atom_idx : int) -> list[int]:
+        '''
+        Creating atom-wise Morgan Fingerprint.
+        '''
+        atom_i_fingerprint = self.morgan_generator.GetFingerprint(mol, fromAtoms=[atom_idx])
+        return list(atom_i_fingerprint)
+
+    def create_atom_wise_MFP_node_features(self, mol : Chem.rdchem.Mol) -> list[list[int]]:
+        '''
+        Create the atom-wise Morgan fingerprints for a molecule.
+        '''
+        all_atom_features = []
+
+        for i in range(len(mol.GetAtoms())):
+            all_atom_features.append(self.create_atom_wise_MFP(mol=mol,
+                                                               atom_idx=i))
+        return all_atom_features
+
+    def smiles_to_MFP_graph(self, smiles : str) -> tuple[torch.tensor, torch.tensor, torch.tensor]:
+        '''
+        Creating the edge list and atom-wise Morgan fingerprints for a single molecule.
+        '''
+        mol = Chem.MolFromSmiles(smiles)
+        edge_tuples, bond_types = self.find_edge_indices(mol=mol)
+        node_info = self.create_atom_wise_MFP_node_features(mol=mol)
+        return (torch.tensor(edge_tuples, dtype=torch.long).reshape(-1, 2),
+                torch.tensor(node_info, dtype=torch.float).reshape((len(mol.GetAtoms()), -1)),
+                torch.tensor(bond_types, dtype=torch.float).reshape((-1, 1))
+                )
 
