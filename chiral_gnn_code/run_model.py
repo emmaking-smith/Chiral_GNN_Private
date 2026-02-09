@@ -17,8 +17,6 @@ from torch_geometric.loader import DataLoader
 from torch_geometric_model_loading import Geometric_Models_2, train_one_epoch, validate_test_one_epoch
 from geometric_dataset import ChiralGNN_Dataset, ChiralGNN_Dataset_MorganFP
 
-
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def init_args():
@@ -101,11 +99,13 @@ def main():
     idxs = np.array_split(idxs, args.cv)
 
     # Make the directory for this fold.
+
     # feats = args.features.copy()
     # feats.sort()
     # feats = '_'.join(feats).replace(' ', '-')
     # save_dir = os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold))
     save_dir = os.path.join(args.save_dir, args.model_name, str(args.random_seed), 'fold_' + str(args.fold))
+
     Path(save_dir).mkdir(exist_ok=True, parents=True)
 
     # Get the logger ready.
