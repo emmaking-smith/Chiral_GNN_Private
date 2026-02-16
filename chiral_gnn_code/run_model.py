@@ -15,7 +15,7 @@ import torch
 from torch_geometric.loader import DataLoader
 
 from torch_geometric_model_loading import Geometric_Models_2, train_one_epoch, validate_test_one_epoch
-from geometric_dataset import ChiralGNN_Dataset, ChiralGNN_Dataset_MorganFP
+from geometric_dataset import ChiralGNN_Dataset, ChiralGNN_Dataset_MorganFP, Molformer_Dataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -37,7 +37,7 @@ def init_args():
     #                     help='Choose one or more of the available options: atomic number, hybridization, chirality type, xyz')
     parser.add_argument('--epochs',
                         type=int,
-                        default=100)
+                        default=20)
     parser.add_argument('--lr',
                         type=float,
                         default=1e-3)
@@ -130,6 +130,8 @@ def main():
     val_df = df.loc[val_idxs].reset_index(drop=True)
     test_df = df.loc[test_idxs].reset_index(drop=True)
 
+    del df
+
     # Set up dataset & datalaoder.
     # train_dataset = ChiralGNN_Dataset(df=train_df,
     #                                   features=args.features)
@@ -137,9 +139,14 @@ def main():
     #                                   features=args.features)
     # test_dataset = ChiralGNN_Dataset(df=test_df,
     #                                  features=args.features)
-    train_dataset = ChiralGNN_Dataset_MorganFP(df=train_df)
-    val_dataset = ChiralGNN_Dataset_MorganFP(df=val_df)
-    test_dataset = ChiralGNN_Dataset_MorganFP(df=test_df)
+    # train_dataset = ChiralGNN_Dataset_MorganFP(df=train_df)
+    # val_dataset = ChiralGNN_Dataset_MorganFP(df=val_df)
+    # test_dataset = ChiralGNN_Dataset_MorganFP(df=test_df)
+
+    train_dataset = Molformer_Dataset(df=train_df)
+    val_dataset = Molformer_Dataset(df=val_df)
+    test_dataset = Molformer_Dataset(df=test_df)
+
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size,
                                   shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size,

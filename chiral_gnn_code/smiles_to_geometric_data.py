@@ -210,3 +210,73 @@ class Chiral_MFP_Graph(Create_Graph):
                 torch.tensor(bond_types, dtype=torch.float).reshape((-1, 1))
                 )
 
+class Molformer_Graph(Create_Graph):
+    def __init__(self):
+        '''
+        Creating a pytorch geometric graph
+        using the different rootedAtAtom indices
+        converted to molformer embeddings.
+        '''
+        super(Molformer_Graph, self).__init__(features=[])
+        from transformers import AutoModel, AutoTokenizer
+        self.model = AutoModel.from_pretrained("ibm/MoLFormer-XL-both-10pct",
+                                               deterministic_eval=True,
+                                               trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained("ibm/MoLFormer-XL-both-10pct",
+                                                       trust_remote_code=True)
+
+    def molformer_embedding(self, smiles : str) -> list[int]:
+        '''
+        Creating atom-wise Morgan Fingerprint.
+        '''
+        inputs = self.tokenizer([smiles], padding=True, return_tensors="pt")
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+        return outputs.pooler_output.tolist()  # list of length 768
+
+    def create_atom_wise_molformer_nodes(self, mol : Chem.rdchem.Mol) -> list[list[int]]:
+        '''
+        Create the atom-wise Morgan fingerprints for a molecule.
+        '''
+        all_atom_features = []
+
+        for i in range(len(mol.GetAtoms())):
+            smiles_starting_at_index_i = Chem.MolToSmiles(mol, rootedAtAtom=i)
+            all_atom_features.append(self.molformer_embedding(smiles=smiles_starting_at_index_i))
+        return all_atom_features
+
+    def smiles_to_molformer_graph(self, smiles : str) -> tuple[torch.tensor, torch.tensor]:
+        '''
+        Creating the edge list and atom-wise Morgan fingerprints for a single molecule.
+        '''
+        mol = Chem.MolFromSmiles(smiles)
+        edge_tuples, bond_types = self.find_edge_indices(mol=mol)
+        # node_info = self.create_atom_wise_molformer_nodes(mol=mol)
+        return (torch.tensor(edge_tuples, dtype=torch.long).reshape(-1, 2),
+                torch.tensor(bond_types, dtype=torch.float).reshape((-1, 1))
+                )
+
+import argparse
+
+def init_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--chunk',
+                        type=int)
+    return parser.parse_args()
+
+
+def main():
+    import pandas as pd
+    from tqdm import tqdm
+    args = init_args()
+    df = pd.read_pickle('data/processed_data_with_xyz.pickle')
+    df = df[args.chunk:args.chunk+15000].reset_index(drop=True)
+    MG = Molformer_Graph()
+    node_infos = []
+    for smiles in tqdm(df['SMILES']):
+        node_infos.append(MG.create_atom_wise_molformer_nodes(Chem.MolFromSmiles(smiles)))
+    df['node_info'] = node_infos
+    df.to_pickle('data/processed_data_with_molformer_node_info_' + str(args.chunk) + '_' + str(args.chunk+15000) + '.pickle')
+
+if __name__ == '__main__':
+    main()
