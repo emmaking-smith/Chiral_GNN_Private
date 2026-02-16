@@ -1,5 +1,5 @@
 '''
-Testing out how Molformer -> RF does.
+Testing out how Molformer -> classic ML does.
 
 NOTE: NEEDS TRANSFORMERS==4.36.2!!!
 '''
@@ -8,8 +8,8 @@ import pandas as pd
 import numpy as np
 import argparse
 import torch
+import os
 
-from typing import Union
 from sklearn.model_selection import KFold
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
