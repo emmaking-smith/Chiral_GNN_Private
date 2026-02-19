@@ -1,20 +1,16 @@
 '''
-Testing out how Molformer -> classic ML does.
-
-NOTE: NEEDS TRANSFORMERS==4.36.2!!!
+Baselines for concatenation
+of the Morgan + Molformer.
 '''
 
 import pandas as pd
 import numpy as np
 import argparse
-import torch
-import os
 
 from sklearn.model_selection import KFold
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
-from transformers import AutoModel, AutoTokenizer
 
 def init_args():
     parser = argparse.ArgumentParser()
@@ -24,41 +20,6 @@ def init_args():
                         type=str,
                         choices=['RF', 'ExtraTrees', 'GradBoost', 'SVM'])
     return parser.parse_args()
-
-class MolFormer_Embeddings:
-    def __init__(self):
-        '''
-        Turn the SMILES strings into MolFormer pytorch tensors.
-        '''
-
-        self.model = AutoModel.from_pretrained("ibm/MoLFormer-XL-both-10pct",
-                                               deterministic_eval=True,
-                                               trust_remote_code=True)
-        self.tokenizer = AutoTokenizer.from_pretrained("ibm/MoLFormer-XL-both-10pct",
-                                                       trust_remote_code=True)
-
-    def embed_one_smiles(self, smiles : str) -> torch.tensor:
-        '''
-        Embed one smiles string.
-        '''
-        inputs = self.tokenizer([smiles], padding=True, return_tensors="pt")
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-        return outputs.pooler_output  # tensor size 1 x 768
-
-    def create_molformer_embeddings(self, df : pd.DataFrame) -> pd.DataFrame:
-        '''
-        Creating adding the molformer tensors (as numpy arrays)
-        to the existing dataframe.
-        '''
-        molformer_embeddings = [self.embed_one_smiles(smiles=x).numpy() for x in df['SMILES']]
-        df['Molformer_Embeddings'] = molformer_embeddings
-        return df
-
-    def create_new_df(self) -> None:
-        df = pd.read_pickle('data/processed_data_with_xyz.pickle')
-        new_df = self.create_molformer_embeddings(df)
-        new_df.to_pickle('data/processed_data_with_xyz_and_molformer_embeddings.pickle')
 
 def predictions(train_inputs : np.array,
                 train_labels : np.array,
@@ -79,13 +40,14 @@ def scorings(test_labels : np.array, predictions : np.array) -> tuple[float, flo
     return f_score, precision, recall, accuracy
 
 def main():
-    # MolFormer_Embeddings().create_new_df()
+    # Get both dataframes.
+    molformer_df = pd.read_pickle('../data/processed_data_with_xyz_and_molformer_embeddings.pickle')
+    morgan_df = pd.read_pickle('../data/processed_data_with_xyz_and_morgan_fingerprints.pickle')
 
-    # Run the RF, SVM, ExtraTrees, GradientBoost
-    df = pd.read_pickle('data/processed_data_with_xyz_and_molformer_embeddings.pickle')
-
-    # fold = 0
-    # model = RandomForestClassifier()
+    morgan_molformer = np.concat((
+        np.array(morgan_df['Morgan_FP'].tolist()).reshape((len(molformer_df), -1)),
+        np.array(molformer_df['Molformer_Embeddings'].tolist()).reshape((len(morgan_df), -1))
+    ), axis=1)
 
     model_zoo = {'RF': RandomForestClassifier(),
                  'ExtraTrees': ExtraTreesClassifier(),
@@ -97,16 +59,18 @@ def main():
     model = model_zoo[args.model]
 
     cv = KFold(n_splits=5, shuffle=True, random_state=3)
-    idxs = np.array(df.index)
+    idxs = np.array(molformer_df.index)
     train_idxs, test_idxs = list(cv.split(idxs))[fold]
 
-    train_df = df.loc[train_idxs].reset_index(drop=True)
-    test_df = df.loc[test_idxs].reset_index(drop=True)
+    train_df = molformer_df.loc[train_idxs].reset_index(drop=True)
+    test_df = molformer_df.loc[test_idxs].reset_index(drop=True)
 
-    train_inputs = np.array(train_df['Molformer_Embeddings'].tolist()).reshape((len(train_df), -1))
+    del molformer_df, morgan_df
+
+    train_inputs = morgan_molformer[train_idxs]
     train_labels = np.array([1 if x == '+' else 0 for x in train_df['Rotation']]).reshape((len(train_df), ))
 
-    test_inputs = np.array(test_df['Molformer_Embeddings'].tolist()).reshape((len(test_df), -1))
+    test_inputs = morgan_molformer[test_idxs]
     test_labels = np.array([1 if x == '+' else 0 for x in test_df['Rotation']]).reshape((len(test_df), ))
 
     preds = predictions(train_inputs, train_labels, test_inputs, model)
@@ -121,7 +85,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
