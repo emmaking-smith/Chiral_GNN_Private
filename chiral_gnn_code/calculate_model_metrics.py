@@ -33,17 +33,18 @@ def main():
         df = pd.read_pickle(os.path.join(args.path, 'pred.pickle'))
         true = np.array([1 if x == '+' else 0 for x in df['Rotation']])
         preds = df['pred']
+        print('DataFrame Loaded...')
+        print()
     except:
         preds = np.load(os.path.join(args.path, 'pred.npy'))
         true = np.load(os.path.join(args.path, 'true.npy'))
+        print('npy files loaded...')
+        print()
     preds = np.array([1 if x >= 0.5 else 0 for x in preds])
 
     f_score, precision, recall, accuracy = scorings(true, preds)
-    fold = args.path.split('/')[4].split('_')[-1]
-    model = args.path.split('/')[2]
 
     print('*'*10)
-    print(f'{model} (Fold: {fold})')
     print(f'\t F-Score: {f_score}')
     print(f'\t Precision: {precision}')
     print(f'\t Recall: {recall}')
