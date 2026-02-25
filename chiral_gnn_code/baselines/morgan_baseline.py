@@ -52,9 +52,9 @@ class Morgan_Embeddings:
         return df
 
     def create_new_df(self) -> None:
-        df = pd.read_pickle('../data/processed_data_with_xyz.pickle')
+        df = pd.read_pickle('data/processed_data_with_xyz.pickle')
         new_df = self.create_morgan_embeddings(df)
-        new_df.to_pickle('data/processed_data_with_xyz_and_morgan_fingerprints.pickle')
+        new_df.to_pickle('data/processed_data_with_xyz_and_morgan_2048_fingerprints.pickle')
 
 def predictions(train_inputs : np.array,
                 train_labels : np.array,
@@ -75,10 +75,10 @@ def scorings(test_labels : np.array, predictions : np.array) -> tuple[float, flo
     return f_score, precision, recall, accuracy
 
 def main():
-    # Morgan_Embeddings().create_new_df()
+    Morgan_Embeddings().create_new_df()
 
     # Run the RF, SVM, ExtraTrees, GradientBoost
-    df = pd.read_pickle('data/processed_data_with_xyz_and_morgan_fingerprints.pickle')
+    df = pd.read_pickle('data/processed_data_with_xyz_and_morgan_2048_fingerprints.pickle')
 
     # fold = 0
     # model = RandomForestClassifier()
