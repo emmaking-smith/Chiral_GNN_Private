@@ -14,8 +14,9 @@ import torch
 
 from torch_geometric.loader import DataLoader
 
-from torch_geometric_model_loading import Geometric_Models_2, train_one_epoch, validate_test_one_epoch
-from geometric_dataset import ChiralGNN_Dataset, ChiralGNN_Dataset_MorganFP, Molformer_Dataset
+from torch_geometric_model_loading import Geometric_Models, train_one_epoch, validate_test_one_epoch
+from geometric_dataset import ChiralGNN_Dataset, ChiralGNN_Dataset_MorganFP, Molformer_Dataset, \
+    Morgan_cat_Molformer_Dataset, Morgan_cat_Atom_Feats_Dataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -104,7 +105,7 @@ def main():
     # feats.sort()
     # feats = '_'.join(feats).replace(' ', '-')
     # save_dir = os.path.join(args.save_dir, args.model_name, feats, str(args.random_seed), 'fold_' + str(args.fold))
-    save_dir = os.path.join(args.save_dir, args.model_name, str(args.random_seed), 'fold_' + str(args.fold))
+    save_dir = str(os.path.join(args.save_dir, args.model_name, str(args.random_seed), 'fold_' + str(args.fold)))
 
     Path(save_dir).mkdir(exist_ok=True, parents=True)
 
@@ -142,10 +143,20 @@ def main():
     # train_dataset = ChiralGNN_Dataset_MorganFP(df=train_df)
     # val_dataset = ChiralGNN_Dataset_MorganFP(df=val_df)
     # test_dataset = ChiralGNN_Dataset_MorganFP(df=test_df)
+    #
+    # train_dataset = Molformer_Dataset(df=train_df)
+    # val_dataset = Molformer_Dataset(df=val_df)
+    # test_dataset = Molformer_Dataset(df=test_df)
+    #
+    # train_dataset = Morgan_cat_Molformer_Dataset(df=train_df)
+    # val_dataset = Morgan_cat_Molformer_Dataset(df=val_df)
+    # test_dataset = Morgan_cat_Molformer_Dataset(df=test_df)
 
-    train_dataset = Molformer_Dataset(df=train_df)
-    val_dataset = Molformer_Dataset(df=val_df)
-    test_dataset = Molformer_Dataset(df=test_df)
+    train_dataset = Morgan_cat_Atom_Feats_Dataset(df=train_df, fpSize=2048)
+    val_dataset = Morgan_cat_Atom_Feats_Dataset(df=val_df, fpSize=2048)
+    test_dataset = Morgan_cat_Atom_Feats_Dataset(df=test_df, fpSize=2048)
+
+
 
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size,
                                   shuffle=True)
@@ -156,19 +167,14 @@ def main():
 
     # Set up model & optimizer.
     input_layer_size = train_dataset[0]['x'].size()[-1]
-    model = Geometric_Models_2(input_layer_size=input_layer_size,
+    model = Geometric_Models(input_layer_size=input_layer_size,
                                hidden_layer_size=args.hidden_layer_size,
                                output_layer_size=1,
                                num_message_passes=3,
                                model_name=args.model_name)
-    # model = Geometric_Models(input_layer_size=input_layer_size,
-    #                          hidden_layer_size=args.hidden_layer_size,
-    #                          output_layer_size=1,
-    #                          model_name=args.model_name)
 
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=args.lr)
-
     model.to(device)
 
     # Train - Val Loop.
@@ -185,7 +191,14 @@ def main():
 
     # Save out model and preds.
     torch.save(model.state_dict(), os.path.join(save_dir, 'model_state_dict'))
-    test_df.to_pickle(os.path.join(save_dir, 'pred.pickle'))
+    # test_df.to_pickle(os.path.join(save_dir, 'pred.pickle'))
+
+    # To save on space, just save out the true.npy and pred.npy
+    ground_truth = [1 if x == '+' else 0 for x in test_df['Rotation']]
+    predictions = [float(x[0]) for x in test_df['pred']]
+    np.save(os.path.join(save_dir, 'true.npy'), ground_truth)
+    np.save(os.path.join(save_dir, 'pred.npy'), predictions)
+
 
 if __name__ == '__main__':
     main()

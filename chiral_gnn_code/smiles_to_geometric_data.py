@@ -5,6 +5,7 @@ it into the correct format for pytorch geometric datasets.
 '''
 import torch
 import numpy as np
+from typing import Callable
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolTransforms
 from rdkit.Chem import rdFingerprintGenerator
@@ -17,7 +18,6 @@ class Node_Info:
     • hybridization
     • chirality type
     • x,y,z
-    • neighbor "up" / "down" / "in plane"
     '''
     def __init__(self):
         pass
@@ -165,7 +165,7 @@ class Create_Graph:
 
 
 class Chiral_MFP_Graph(Create_Graph):
-    def __init__(self, radius : int=2, fpSize : int=512):
+    def __init__(self, radius : int=2, fpSize : int=2048):
         '''
         Creating a pytorch geometric graph
         using the atom-wise chiral Morgan fingerprint
@@ -186,6 +186,13 @@ class Chiral_MFP_Graph(Create_Graph):
         '''
         atom_i_fingerprint = self.morgan_generator.GetFingerprint(mol, fromAtoms=[atom_idx])
         return list(atom_i_fingerprint)
+
+    # def create_atom_wise_counts_MFP(self, mol : Chem.rdchem.Mol, atom_idx : int) -> list[int]:
+    #     '''
+    #     Creating atom-wise Morgan Fingerprint.
+    #     '''
+    #     atom_i_fingerprint = self.morgan_generator.GetCountFingerprint(mol, fromAtoms=[atom_idx])
+    #     return list(atom_i_fingerprint)
 
     def create_atom_wise_MFP_node_features(self, mol : Chem.rdchem.Mol) -> list[list[int]]:
         '''
@@ -253,6 +260,43 @@ class Molformer_Graph(Create_Graph):
         edge_tuples, bond_types = self.find_edge_indices(mol=mol)
         # node_info = self.create_atom_wise_molformer_nodes(mol=mol)
         return (torch.tensor(edge_tuples, dtype=torch.long).reshape(-1, 2),
+                torch.tensor(bond_types, dtype=torch.float).reshape((-1, 1))
+                )
+
+class Morgan_Concat_Atom_Feats(Create_Graph):
+    '''
+    Concatenating a from atom Morgan
+    with atom-wise features.
+    '''
+    def __init__(self, radius : int=2, fpSize : int=2048, features : list[str]=['atomic number', 'chirality type', 'hybridization']):
+        super(Morgan_Concat_Atom_Feats, self).__init__(features=features)
+        self.morgan_generator = rdFingerprintGenerator.GetMorganGenerator(radius=radius,
+                                                                          fpSize=fpSize,
+                                                                          includeChirality=True)
+
+    def create_atom_wise_MFP(self, mol: Chem.rdchem.Mol, atom_idx: int) -> list[int]:
+        '''
+        Creating atom-wise Morgan Fingerprint.
+        '''
+        atom_i_fingerprint = self.morgan_generator.GetFingerprint(mol, fromAtoms=[atom_idx])
+        return list(atom_i_fingerprint)
+
+    def create_concat_node_feats(self, mol : Chem.rdchem.Mol) -> np.array:
+        atom_features = self.create_node_features(mol=mol,
+                                                  xyz_coordinates=None)
+        morgan_features = [self.create_atom_wise_MFP(mol=mol, atom_idx=x) for x in range(len(mol.GetAtoms()))]
+        node_features = np.concat((morgan_features, atom_features), axis=1)
+        return node_features
+
+    def smiles_to_MFP_concat_atom_feat_graph(self, smiles : str) -> tuple[torch.tensor, torch.tensor, torch.tensor]:
+        '''
+        Creating the edge list and atom-wise Morgan fingerprints for a single molecule.
+        '''
+        mol = Chem.MolFromSmiles(smiles)
+        edge_tuples, bond_types = self.find_edge_indices(mol=mol)
+        node_info = self.create_concat_node_feats(mol=mol)
+        return (torch.tensor(edge_tuples, dtype=torch.long).reshape(-1, 2),
+                torch.tensor(node_info, dtype=torch.float).reshape((len(mol.GetAtoms()), -1)),
                 torch.tensor(bond_types, dtype=torch.float).reshape((-1, 1))
                 )
 
