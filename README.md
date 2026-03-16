@@ -11,6 +11,7 @@ This project compares four classical machine learning (ML) models and five graph
 - Extra Trees
 - Gradient Boosting
 - Support Vector Machine (SVM)
+
 The detailed implementation of the ML models can be found in benchmark.py
 
 These models use chirality-aware Morgan fingerprints as input features, the generation of the hirality-aware Morgan fingerprints can be found in dataconversion.py and smiles_to_moreganfingerprint.py
