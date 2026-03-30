@@ -1,10 +1,10 @@
 # Using Graph Neural Networks to Predict Absolute Stereochemical Configuration
 
 ## Overview
-This repository contains the code, datasetfor a BSc research project on predicting the absolue configuration via optical rotation labels of chiral molecules using classical machine learning and graph neural network models. The project compares chirality-aware Morgan fingerprints and graph-based molecular representations, and includes ablation studies to evaluate the contribution of different embedded node features.
+This repository contains the code, dataset for a BSc research project on predicting the absolute stereochemical configuration via optical rotation labels of chiral molecules using classical machine learning and graph neural network models. The project compared chirality-aware Morgan fingerprints and graph-based molecular representations, and included ablation studies to evaluate the contribution of different embedded node features.
 
 ## Methods overview
-This project compares four classical machine learning (ML) models and five graph neural network (GNN) models for binary classification of optical rotation labels.
+This project compared four classical machine learning (ML) models and five graph neural network (GNN) models for binary classification of optical rotation labels.
 
 ### Classical ML models
 - Random Forest
@@ -14,7 +14,7 @@ This project compares four classical machine learning (ML) models and five graph
 
 The detailed implementation of the ML models can be found in benchmark.py
 
-These models use chirality-aware Morgan fingerprints as input features, the generation of the hirality-aware Morgan fingerprints can be found in dataconversion.py and smiles_to_moreganfingerprint.py
+These models used chirality-aware Morgan fingerprints as input features, the generation of the chirality-aware Morgan fingerprints can be found in dataconversion.py and smiles_to_moreganfingerprint.py
 
 ### GNN models
 - Graph Convolutional Network (GCN)
