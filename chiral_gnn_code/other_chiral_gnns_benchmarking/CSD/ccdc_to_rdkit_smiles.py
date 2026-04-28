@@ -15,6 +15,7 @@ import numpy as np
 import os
 import subprocess
 import argparse
+import timeout_decorator
 
 from pathlib import Path
 from rdkit import Chem
@@ -180,6 +181,7 @@ def main():
     # Set up parser.
     args = init_args()
     parser = EntryReader('CSD')
+    args.save_dir = os.path.join(args.save_dir, str(args.chunk))
 
     # Load in the CCDC identifiers.
     ccdc_identifiers = np.load(args.data_path)
@@ -194,6 +196,7 @@ def main():
             if 'Unknown' not in ccdcmol.smiles:
                 rdkitmol = Chem.MolFromSmiles(ccdcmol.smiles, sanitize=False)
                 if has_delocalised_bonds(ccdcmol) == False:
+                    ccdcmol.remove_hydrogens() # Needed to keep the atom indexing consistent with adj matrices
                     ccdc_mols.append(ccdcmol)
                     rdkit_mols.append(rdkitmol)
                     new_ccdc_identifiers.append(identifier)
@@ -212,19 +215,27 @@ def main():
     CCDC_Files.ccdc_mols_to_gss_files(new_ccdc_identifiers, ccdc_mols)
     RDKit_Files.rdkit_mols_to_gss_files(new_ccdc_identifiers, rdkit_mols)
 
-    for id in tqdm(new_ccdc_identifiers):
-        command = f"glasgow_subgraph_solver {os.path.join(args.save_dir, 'ccdc_' + str(id) + '.txt')} {os.path.join(args.save_dir, 'rdkit_' + str(id) + '.txt')} > {os.path.join(args.save_dir, 'mappings', 'mapping_' + str(id) + '.txt')}"
-        subprocess.run(command,
-                       shell=True,
-                       env=env,
-                       executable='/bin/bash')
-
     removals = []
+
+    for id in tqdm(new_ccdc_identifiers):
+        try:
+            @timeout_decorator.timeout(180)
+            def run_gss(id):
+                command = f"glasgow_subgraph_solver {os.path.join(args.save_dir, 'ccdc_' + str(id) + '.txt')} {os.path.join(args.save_dir, 'rdkit_' + str(id) + '.txt')} > {os.path.join(args.save_dir, 'mappings', 'mapping_' + str(id) + '.txt')}"
+                subprocess.run(command,
+                               shell=True,
+                               env=env,
+                               executable='/bin/bash')
+            run_gss(id)
+        except timeout_decorator.TimeoutError:
+            continue
+
     # Checking the mappings and removing all that are not properly mapped.
     for file in os.listdir(os.path.join(args.save_dir, 'mappings')):
-        idx = os.path.splitext(file)[0].split('mapping_')[1]
-        if gss_check(os.path.join(args.save_dir, 'mappings', file)) == False:
-            removals.append(idx)
+        if '.txt' in file:
+            idx = os.path.splitext(file)[0].split('mapping_')[1]
+            if gss_check(os.path.join(args.save_dir, 'mappings', file)) == False:
+                removals.append(idx)
 
     # Updating the ccdc_identifiers.
     updated_ccdc_identifiers = new_ccdc_identifiers.copy()

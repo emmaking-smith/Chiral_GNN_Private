@@ -13,6 +13,7 @@ import os
 import numpy as np
 import itertools
 import argparse
+import json
 
 import ccdc
 from ccdc.descriptors import MolecularDescriptors
@@ -207,49 +208,69 @@ class CCDC_Labels:
         return angle_list
 
 class Atomistic_Morgan_Fingerprints():
-    def __init__(self, radius : int=2, fpSize : int=2048, gss_mapping_path : str='GSS_Files/mapping'):
+    def __init__(self, radius : int=2, fpSize : int=2048):
         self.morgan_generator = rdFingerprintGenerator.GetMorganGenerator(radius=radius,
                                                                           fpSize=fpSize,
                                                                           includeChirality=True)
-        self.gss_mapping_path = gss_mapping_path
 
-    def gss_output_to_index_dictionary(self, mol_index: int) -> dict:
+    def create_rdkit_molecule(self, ccdc_mol : ccdc.molecule.Molecule) -> Chem.rdchem.Mol:
         '''
-        Takes in the output txt file from running the GSS and creates
-        a dictionary where each key is the CCDC atom index and each
-        value is the corresponding RDKit atom index.
+        Creates an rdkit molecule with the exact indexing as the ccdc molecule.
+        '''
+        sdf_string = ccdc_mol.to_string('sdf')
+        rdkit_mol = Chem.MolFromMolBlock(sdf_string, sanitize=False)
+        return rdkit_mol
 
-                { CCDC Atom 0 : RDKit Atom X, CCDC Atom 1 : RDKit Atom Y, ... }
-
-        All you need is the row number of a give molecule (mol_index).
+    def create_single_fingerprint(self, mol: ccdc.molecule.Molecule) -> list[int]:
         '''
-        ccdc_to_rdkit_indexing = {}
-        with open(os.path.join(self.gss_mapping_path, 'mapping_' + str(mol_index)), 'r') as f:
-            for line in f:
-                if line.startswith('mapping ='):
-                    line = line.replace('mapping = ', '').strip()
-                    line = line.split(') (')
-                    for mapping in line:
-                        mapping = mapping.strip('()')
-                        key, value = mapping.split('->')
-                        ccdc_to_rdkit_indexing[int(key.strip())] = int(value.strip())
-        return ccdc_to_rdkit_indexing
-
-    def create_single_fingerprint(self, mol : ccdc.molecule.Molecule, mol_index : int) -> list[int]:
+        Creating a single atom-wise chiral morgan fingerprint. ccdc_id refers to the
+        CCDC identifier of the molecule because that is how the GSS mappings are named.
         '''
-        Creating a single atom-wise chiral morgan fingerprint. Mol_index refers to the
-        row the molecule is in because that is how the GSS mappings are named.
-        '''
-        ccdc_to_rdkit_index_dictionary = self.gss_output_to_index_dictionary(mol_index)
-        rdkit_mol = Chem.MolFromSmiles(mol.smiles, sanitize=False)
+        rdkit_mol = self.create_rdkit_molecule(mol)
         fingerprint = []
-        for i, atom in mol.atoms:
-            if atom.atomic_symbol != 'H':
-                fingerprint.append(list(self.morgan_generator.GetFingerprint(rdkit_mol,
-                                                                             fromAtoms=[ccdc_to_rdkit_index_dictionary[i]]
-                                                                             )
-                                        ))
+        for i, atom in enumerate(mol.atoms):
+            fingerprint.append(list(self.morgan_generator.GetFingerprint(rdkit_mol,
+                                                                         fromAtoms=[i]
+                                                                         )
+                                    ))
         return fingerprint
+
+    # def gss_output_to_index_dictionary(self, ccdc_id: str) -> dict:
+    #     '''
+    #     Takes in the output txt file from running the GSS and creates
+    #     a dictionary where each key is the CCDC atom index and each
+    #     value is the corresponding RDKit atom index.
+    #
+    #             { CCDC Atom 0 : RDKit Atom X, CCDC Atom 1 : RDKit Atom Y, ... }
+    #
+    #     All you need is the CCDC identifier of a given molecule (ccdc_id).
+    #     '''
+    #     ccdc_to_rdkit_indexing = {}
+    #     with open(os.path.join(self.gss_mapping_path, 'mapping_' + ccdc_id + '.txt'), 'r') as f:
+    #         for line in f:
+    #             if line.startswith('mapping ='):
+    #                 line = line.replace('mapping = ', '').strip()
+    #                 line = line.split(') (')
+    #                 for mapping in line:
+    #                     mapping = mapping.strip('()')
+    #                     key, value = mapping.split('->')
+    #                     ccdc_to_rdkit_indexing[int(key.strip())] = int(value.strip())
+    #     return ccdc_to_rdkit_indexing
+
+    # def create_single_fingerprint(self, mol : ccdc.molecule.Molecule, ccdc_id : str) -> list[int]:
+    #     '''
+    #     Creating a single atom-wise chiral morgan fingerprint. ccdc_id refers to the
+    #     CCDC identifier of the molecule because that is how the GSS mappings are named.
+    #     '''
+    #     ccdc_to_rdkit_index_dictionary = self.gss_output_to_index_dictionary(ccdc_id)
+    #     rdkit_mol = Chem.MolFromSmiles(mol.smiles)
+    #     fingerprint = []
+    #     for i, atom in enumerate(mol.atoms):
+    #         fingerprint.append(list(self.morgan_generator.GetFingerprint(rdkit_mol,
+    #                                                                      fromAtoms=[ccdc_to_rdkit_index_dictionary[i]]
+    #                                                                      )
+    #                                 ))
+    #     return fingerprint
 
 def main():
     import pandas as pd
@@ -260,54 +281,75 @@ def main():
 
     # Path(args.save_dir).mkdir(parents=True, exist_ok=True)
 
+    # ccdc_identifiers = np.load(args.data_path)
+    # ccdc_identifiers = ccdc_identifiers[args.chunk : args.chunk + 100000]
+    #
+    # # Get CCDC molecules
+    # parser = EntryReader('CSD')
+    # ccdc_mols = []
+    # for id in ccdc_identifiers:
+    #     try:
+    #         ccdc_mols.append(parser.molecule(id))
+    #     except:
+    #         pass
+    #
+    # del ccdc_identifiers
+    #
+    # # Create dataframe.
+    # df = pd.DataFrame()
+    #
+    # atomic_numbers = []
+    # chirality = []
+    # hybridization = []
+    # xyz = []
+    # bond_lists = []
+    # angle_lists = []
+    # new_ids = []
+    #
+    # for mol in tqdm(ccdc_mols):
+    #     try:
+    #         mol.remove_hydrogens()
+    #         bond_lists.append(CCDC_Labels().create_bond_list(mol))
+    #         angle_lists.append(CCDC_Labels().create_angle_list(mol))
+    #         atomic_numbers.append(CCDC_Parsing().find_mol_features(mol, 'atomic number'))
+    #         chirality.append(CCDC_Parsing().find_mol_features(mol, 'chirality type'))
+    #         hybridization.append(CCDC_Parsing().find_mol_features(mol, 'hybridization'))
+    #         xyz.append(CCDC_Parsing().find_mol_features(mol, 'xyz'))
+    #         new_ids.append(mol.identifier)
+    #     except:
+    #         pass
+    #
+    # df['ccdc_identifier'] = new_ids
+    # df['atomic_numbers'] = atomic_numbers
+    # df['chirality'] = chirality
+    # df['hybridization'] = hybridization
+    # df['xyz'] = xyz
+    # df['bond_lengths'] = bond_lists
+    # df['angles'] = angle_lists
+    #
+    # df.to_pickle(args.save_name +  '_' + str(args.chunk) + '_' + str(args.chunk + 100000) + '.pickle')
+    # df.to_pickle(os.path.join(args.save_path, str(args.chunk) + '_' + str(args.chunk + 10000) + '.pickle'))
+
+
+    '''
+    chiral Morgan FP
+    '''
+
     ccdc_identifiers = np.load(args.data_path)
-    ccdc_identifiers = ccdc_identifiers[args.chunk : args.chunk + 100000]
 
-    # Get CCDC molecules
     parser = EntryReader('CSD')
-    ccdc_mols = []
-    for id in ccdc_identifiers:
-        try:
-            ccdc_mols.append(parser.molecule(id))
-        except:
-            pass
+    ccdc_mols = [parser.molecule(x) for x in ccdc_identifiers]
+    # ccdc_mols = ccdc_mols[args.chunk : args.chunk + 100000]
+    AMF = Atomistic_Morgan_Fingerprints()
 
-    del ccdc_identifiers
-
-    # Create dataframe.
-    df = pd.DataFrame()
-
-    atomic_numbers = []
-    chirality = []
-    hybridization = []
-    xyz = []
-    bond_lists = []
-    angle_lists = []
-    new_ids = []
+    sdf_strings = {}
 
     for mol in tqdm(ccdc_mols):
-        try:
-            mol.remove_hydrogens()
-            bond_lists.append(CCDC_Labels().create_bond_list(mol))
-            angle_lists.append(CCDC_Labels().create_angle_list(mol))
-            atomic_numbers.append(CCDC_Parsing().find_mol_features(mol, 'atomic number'))
-            chirality.append(CCDC_Parsing().find_mol_features(mol, 'chirality type'))
-            hybridization.append(CCDC_Parsing().find_mol_features(mol, 'hybridization'))
-            xyz.append(CCDC_Parsing().find_mol_features(mol, 'xyz'))
-            new_ids.append(mol.identifier)
-        except:
-            pass
+        mol.remove_hydrogens()
+        sdf_strings[mol.identifier] = mol.to_string('sdf')
 
-    df['ccdc_identifier'] = new_ids
-    df['atomic_numbers'] = atomic_numbers
-    df['chirality'] = chirality
-    df['hybridization'] = hybridization
-    df['xyz'] = xyz
-    df['bond_lengths'] = bond_lists
-    df['angles'] = angle_lists
-
-    df.to_pickle(args.save_name +  '_' + str(args.chunk) + '_' + str(args.chunk + 100000) + '.pickle')
-    # df.to_pickle(os.path.join(args.save_path, str(args.chunk) + '_' + str(args.chunk + 10000) + '.pickle'))
+    with open(args.save_name, 'w') as f:
+        json.dump(sdf_strings, f)
 
 if __name__ == '__main__':
     main()

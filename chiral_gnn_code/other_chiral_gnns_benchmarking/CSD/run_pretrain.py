@@ -104,14 +104,14 @@ def main():
     # Load in dataframes.
     if pretrain == True:
         Path(args.save_dir).mkdir(parents=True, exist_ok=True)
-        train_df = pd.read_pickle(args.train_df)
-        val_df = pd.read_pickle(args.val_df)
-        test_df = pd.read_pickle(args.test_df)
+        train_df = pd.read_pickle(args.train_df).reset_index(drop=True)
+        val_df = pd.read_pickle(args.val_df).reset_index(drop=True)
+        test_df = pd.read_pickle(args.test_df).reset_index(drop=True)
         logger = logger_setup(None, args.save_dir, pretrain)
     else:
-        args.save_dir = str(os.path.join(args.save_dir, str(args.random_seed), 'fold_' + str(args.fold)))
+        args.save_dir = str(os.path.join(args.save_dir, str(0), 'fold_' + str(args.fold)))
         Path(args.save_dir).mkdir(exist_ok=True, parents=True)
-        finetune_df = pd.read_pickle(args.finetune_df)
+        finetune_df = pd.read_pickle(args.finetune_df).reset_index(drop=True)
         np.random.seed(0)
         idxs = np.array(finetune_df.index)
         np.random.shuffle(idxs)
@@ -143,7 +143,8 @@ def main():
     train_dataset = CSD_Atom_Feat_Dataset(df=train_df,
                  max_num_angles=args.max_num_angles,
                  max_molecule_size=args.max_molecule_size,
-                 max_bonds=args.max_bonds)
+                 max_bonds=args.max_bonds,
+                 pretrain=pretrain)
     train_loader = DataLoader(train_dataset,
                               batch_size=args.batch_size,
                               shuffle=True,
@@ -151,7 +152,8 @@ def main():
     val_dataset = CSD_Atom_Feat_Dataset(df=val_df,
                                           max_num_angles=args.max_num_angles,
                                           max_molecule_size=args.max_molecule_size,
-                                          max_bonds=args.max_bonds)
+                                          max_bonds=args.max_bonds,
+                                          pretrain=pretrain)
     val_loader = DataLoader(val_dataset,
                               batch_size=args.batch_size,
                               shuffle=True,
@@ -159,7 +161,8 @@ def main():
     test_dataset = CSD_Atom_Feat_Dataset(df=test_df,
                                         max_num_angles=args.max_num_angles,
                                         max_molecule_size=args.max_molecule_size,
-                                        max_bonds=args.max_bonds)
+                                        max_bonds=args.max_bonds,
+                                        pretrain=pretrain)
     test_loader = DataLoader(test_dataset,
                             batch_size=1,
                             shuffle=False,
@@ -169,7 +172,9 @@ def main():
     model = Pretrain_Finetune_MPNN(message_size=args.message_size,
                                    message_passes=args.message_passes,
                                    ranked_unique_atoms=np.load(args.ranked_unique_atoms).tolist(),
-                                   pretrain_model_path=args.pretrain_model_path
+                                   pretrain_model_path=args.pretrain_model_path,
+                                   max_num_angles=args.max_num_angles,
+                                   max_bonds=args.max_bonds
                                    )
     optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
     model.to(device)
