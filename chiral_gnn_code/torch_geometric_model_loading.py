@@ -9,12 +9,12 @@ import pandas as pd
 import torch
 import torch_geometric
 
-from torch_geometric.nn import GCNConv, GATConv, SAGEConv, GINConv, NNConv, global_mean_pool
+from torch_geometric.nn import global_mean_pool
 from torch_geometric.nn.models import GCN, GAT, GraphSAGE, GIN, AttentiveFP
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-class Geometric_Models_2(torch.nn.Module):
+class Geometric_Models(torch.nn.Module):
     def __init__(self,
                  input_layer_size : int,
                  hidden_layer_size : int,
@@ -59,57 +59,6 @@ class Geometric_Models_2(torch.nn.Module):
     def calculate_loss(self, predicted : torch.tensor,
                        true : torch.tensor) -> torch.tensor:
         return torch.nn.BCELoss()(predicted, true)
-
-# class Geometric_Models(torch.nn.Module):
-#     '''
-#     Loads a standardized model from a given name.
-#     '''
-#     def __init__(self, input_layer_size : int,
-#                  hidden_layer_size : int,
-#                  output_layer_size : int,
-#                  model_name : str):
-#         super().__init__()
-#         self.input_layer_size = input_layer_size
-#         self.hidden_layer_size = hidden_layer_size
-#         self.output_layer_size = output_layer_size
-#
-#         self.graph_convolution_layer_dict = {
-#             'GCN' : GCNConv,
-#             'GAT' : GATConv,
-#             'SAGE' : SAGEConv,
-#             'GIN' : GINConv,
-#             'NN' : NNConv
-#         }
-#
-#         self.conv_layer1 = self.graph_convolution_layer_dict[model_name](self.input_layer_size,
-#                                                                          self.hidden_layer_size)
-#         self.conv_layer2 = self.graph_convolution_layer_dict[model_name](self.hidden_layer_size,
-#                                                                          self.hidden_layer_size)
-#         self.conv_layer3 = self.graph_convolution_layer_dict[model_name](self.hidden_layer_size,
-#                                                                          self.hidden_layer_size)
-#         self.final_layer = torch.nn.Linear(self.hidden_layer_size, self.output_layer_size)
-#
-#     def forward(self, batch : torch_geometric.data.batch.Batch) -> torch.tensor:
-#         node_info = batch['x']
-#         edge_index = batch['edge_index']
-#         edge_attr = batch['edge_attr']
-#         graph_embeddings = torch.nn.ReLU()(self.conv_layer1(x=node_info,
-#                                                             edge_index=edge_index,
-#                                                             edge_attr=edge_attr))
-#         graph_embeddings = torch.nn.ReLU()(self.conv_layer2(x=graph_embeddings,
-#                                                             edge_index=edge_index,
-#                                                             edge_attr=edge_attr))
-#         graph_embeddings = torch.nn.ReLU()(self.conv_layer3(x=graph_embeddings,
-#                                                             edge_index=edge_index,
-#                                                             edge_attr=edge_attr))
-#         output = self.final_layer(graph_embeddings)
-#         # Average pool for each molecule.
-#         output = global_mean_pool(output, batch['batch'])
-#         return torch.nn.Sigmoid()(output).reshape([-1])
-#
-#     def calculate_loss(self, predicted : torch.tensor,
-#                        true : torch.tensor) -> torch.tensor:
-#         return torch.nn.BCELoss()(predicted, true)
 
 def train_one_epoch(model : torch.nn.Module,
                     dataloader : torch_geometric.loader.DataLoader,
@@ -163,7 +112,7 @@ def main():
     input_layer_size = dataset[0]['x'].size()[-1]
     hidden_layer_size = 3
     output_layer_size = 1
-    model = Geometric_Models_2(input_layer_size=input_layer_size,
+    model = Geometric_Models(input_layer_size=input_layer_size,
                              hidden_layer_size=hidden_layer_size,
                              output_layer_size=output_layer_size,
                              num_message_passes=3,

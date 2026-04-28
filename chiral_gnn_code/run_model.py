@@ -16,7 +16,7 @@ from torch_geometric.loader import DataLoader
 
 from torch_geometric_model_loading import Geometric_Models, train_one_epoch, validate_test_one_epoch
 from geometric_dataset import ChiralGNN_Dataset, ChiralGNN_Dataset_MorganFP, Molformer_Dataset, \
-    Morgan_cat_Molformer_Dataset, Morgan_cat_Atom_Feats_Dataset
+    Morgan_cat_Molformer_Dataset, Morgan_cat_Atom_Feats_Dataset, Mapchiral_cat_Atom_Feats_Dataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -151,12 +151,14 @@ def main():
     # train_dataset = Morgan_cat_Molformer_Dataset(df=train_df)
     # val_dataset = Morgan_cat_Molformer_Dataset(df=val_df)
     # test_dataset = Morgan_cat_Molformer_Dataset(df=test_df)
+    #
+    # train_dataset = Morgan_cat_Atom_Feats_Dataset(df=train_df, fpSize=2048)
+    # val_dataset = Morgan_cat_Atom_Feats_Dataset(df=val_df, fpSize=2048)
+    # test_dataset = Morgan_cat_Atom_Feats_Dataset(df=test_df, fpSize=2048)
 
-    train_dataset = Morgan_cat_Atom_Feats_Dataset(df=train_df, fpSize=2048)
-    val_dataset = Morgan_cat_Atom_Feats_Dataset(df=val_df, fpSize=2048)
-    test_dataset = Morgan_cat_Atom_Feats_Dataset(df=test_df, fpSize=2048)
-
-
+    train_dataset = Mapchiral_cat_Atom_Feats_Dataset(df=train_df)
+    val_dataset = Mapchiral_cat_Atom_Feats_Dataset(df=val_df)
+    test_dataset = Mapchiral_cat_Atom_Feats_Dataset(df=test_df)
 
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size,
                                   shuffle=True)

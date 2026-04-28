@@ -7,7 +7,29 @@ import pandas as pd
 from torch_geometric.data import Dataset, Data
 from torch_geometric.data.data import BaseData
 
-from smiles_to_geometric_data import Create_Graph, Chiral_MFP_Graph, Molformer_Graph, Morgan_Concat_Atom_Feats
+from smiles_to_geometric_data import Create_Graph, Chiral_MFP_Graph, Molformer_Graph, \
+    Morgan_Concat_Atom_Feats, Mapchiral_Concat_Atom_Feats
+
+class Mapchiral_cat_Atom_Feats_Dataset(Dataset):
+    def __init__(self, df : pd.DataFrame):
+        super().__init__()
+        self.df = df
+
+    def len(self) -> int:
+        return len(self.df)
+
+    def get(self, idx : int) -> BaseData:
+        rotation = self.df.loc[idx, 'Rotation']
+        if rotation == '+':
+            rotation = 1
+        else:
+            rotation = 0
+        edge_tuples, node_info, bond_types = self.df.loc[idx, 'node_info']
+        idx_data = Data(x=node_info,
+                        edge_index=edge_tuples.t().contiguous(),
+                        edge_attr=bond_types,
+                        y=torch.tensor([rotation]))
+        return idx_data
 
 class Morgan_cat_Atom_Feats_Dataset(Dataset):
     def __init__(self, df : pd.DataFrame, radius : int=2, fpSize : int=2048):

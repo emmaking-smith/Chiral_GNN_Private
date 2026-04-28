@@ -187,13 +187,6 @@ class Chiral_MFP_Graph(Create_Graph):
         atom_i_fingerprint = self.morgan_generator.GetFingerprint(mol, fromAtoms=[atom_idx])
         return list(atom_i_fingerprint)
 
-    # def create_atom_wise_counts_MFP(self, mol : Chem.rdchem.Mol, atom_idx : int) -> list[int]:
-    #     '''
-    #     Creating atom-wise Morgan Fingerprint.
-    #     '''
-    #     atom_i_fingerprint = self.morgan_generator.GetCountFingerprint(mol, fromAtoms=[atom_idx])
-    #     return list(atom_i_fingerprint)
-
     def create_atom_wise_MFP_node_features(self, mol : Chem.rdchem.Mol) -> list[list[int]]:
         '''
         Create the atom-wise Morgan fingerprints for a molecule.
@@ -300,6 +293,49 @@ class Morgan_Concat_Atom_Feats(Create_Graph):
                 torch.tensor(bond_types, dtype=torch.float).reshape((-1, 1))
                 )
 
+from mapchiral.mapchiral import encode
+
+class Mapchiral_Concat_Atom_Feats(Create_Graph):
+    '''
+    Concatenating a from atom Morgan
+    with atom-wise features.
+    '''
+    def __init__(self, features : list[str]=['atomic number', 'chirality type', 'hybridization']):
+        super(Mapchiral_Concat_Atom_Feats, self).__init__(features=features)
+        pass
+
+    def create_mapchiral_fingerprint(self, mol: Chem.rdchem.Mol, atom_idx: int) -> list[int]:
+        '''
+        Creating atom-wise Morgan Fingerprint.
+        '''
+        fingerprint = encode(mol, max_radius=2, n_permutations=2048, mapping=False)
+        return list(fingerprint)
+
+    def create_concat_node_feats(self, mol : Chem.rdchem.Mol) -> np.array:
+        atom_features = self.create_node_features(mol=mol,
+                                                  xyz_coordinates=None)
+        fps_featurization = []
+        for i, atom in enumerate(mol.GetAtoms()):
+            if Node_Info().find_chiral_type(atom) != 0:
+                fps_featurization.append(self.create_mapchiral_fingerprint(mol=mol, atom_idx=i))
+            else:
+                fps_featurization.append([0] * 2048)
+
+        node_features = np.concat((atom_features, fps_featurization), axis=1)
+        return node_features
+
+    def smiles_to_mapchiral_concat_atom_feat_graph(self, smiles : str) -> tuple[torch.tensor, torch.tensor, torch.tensor]:
+        '''
+        Creating the edge list and atom-wise Morgan fingerprints for a single molecule.
+        '''
+        mol = Chem.MolFromSmiles(smiles)
+        edge_tuples, bond_types = self.find_edge_indices(mol=mol)
+        node_info = self.create_concat_node_feats(mol=mol)
+        return (torch.tensor(edge_tuples, dtype=torch.long).reshape(-1, 2),
+                torch.tensor(node_info, dtype=torch.float).reshape((len(mol.GetAtoms()), -1)),
+                torch.tensor(bond_types, dtype=torch.float).reshape((-1, 1))
+                )
+
 import argparse
 
 def init_args():
@@ -314,13 +350,18 @@ def main():
     from tqdm import tqdm
     args = init_args()
     df = pd.read_pickle('data/processed_data_with_xyz.pickle')
-    df = df[args.chunk:args.chunk+15000].reset_index(drop=True)
-    MG = Molformer_Graph()
+    # df = df[args.chunk : args.chunk+15000].reset_index(drop=True)
+    # df = df[args.chunk * (int(len(df) // 2) + 1): (args.chunk + 1) * (int(len(df)//2) + 1)].reset_index(drop=True)
+    MC = Mapchiral_Concat_Atom_Feats()
     node_infos = []
     for smiles in tqdm(df['SMILES']):
-        node_infos.append(MG.create_atom_wise_molformer_nodes(Chem.MolFromSmiles(smiles)))
+        try:
+            node_infos.append(MC.smiles_to_mapchiral_concat_atom_feat_graph(smiles))
+        except:
+            node_infos.append(None)
     df['node_info'] = node_infos
-    df.to_pickle('data/processed_data_with_molformer_node_info_' + str(args.chunk) + '_' + str(args.chunk+15000) + '.pickle')
+    df = df.loc[pd.isna(df['node_info']) == False].reset_index(drop=True)
+    df.to_pickle('data/processed_data_with_mapchiral_concat_atom_feats_node_info.pickle')
 
 if __name__ == '__main__':
     main()
